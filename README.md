@@ -22,7 +22,7 @@ conda env create -f environment.yml
 conda activate minibatch
 ```
 
-Alternatively, follow these steps:
+Alternatively, you can follow these steps:
 
 ```bash
 conda create -n minibatch python=3.10
