@@ -49,6 +49,6 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [1.0.0] - 2025-11-20
-#### Added
+## [1.0.0] 
+#### Changed - 2025-11-20 
 - Initial release
