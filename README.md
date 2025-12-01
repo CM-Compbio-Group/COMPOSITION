@@ -12,7 +12,7 @@ COMPOSITION is a hierarchical model for single-cell spatial transcriptomics (SRT
 
 _**Planned Publication**_
 
-* _Park, J., Zhang, T., Ma, C. (2025) COMPOSITION: Cell type and spatial Organization Modeling using scalable Probabilistic Optimization of Spatially Informed Topic Inference Of Niches_ 
+* _Park, J., Zhang, T., Ma, C. (2025) COMPOSITION: Cell type and spatial Organization Modeling using scalable Probabilistic Optimization of Spatially Informed Topic Inference Of Niches. Submitted to RECOMB 2026_ 
 
 
 ## Installation
