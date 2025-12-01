@@ -39,3 +39,7 @@ pip install pandas scanpy squidpy cellcharter
 pip uninstall numpy
 pip install numpy==1.26.4
 ```
+
+## How to Use
+
+* Please refer to `scripts/mouse_hypothalamus_model_final_all.ipynb`
