@@ -4,7 +4,7 @@ COMPOSITION is a hierarchical model for single-cell spatial transcriptomics (SRT
 
 <br>
 
-<img width="969" height="545" src="https://github.com/user-attachments/assets/741afa5b-079c-4620-95cd-9f9d0eb1124b" />
+<img width="969" height="545" src="https://github.com/CM-Compbio-Group/COMPOSITION/blob/main/overview.png" />
 
 <br>
 
