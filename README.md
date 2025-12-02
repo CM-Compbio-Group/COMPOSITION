@@ -44,4 +44,4 @@ pip install numpy==1.26.4
 
 ## Fun Fact
 
-* Interestingly, the name COMPOSITION is inspired by Piet Mondrian’s “Composition with Red, Blue and Yellow”, and our simulated data visually resembles that painting.
+* The name `COMPOSITION` is inspired by Piet Mondrian’s “Composition with Red, Blue and Yellow”, and our simulated data visually resembles that painting.
