@@ -42,4 +42,4 @@ pip install numpy==1.26.4
 
 ## How to Use
 
-* Please refer to `scripts/mouse_hypothalamus_model_final_all.ipynb`
+* Please refer to `tutorial/COMPOSITION_mouse_hypothalamus.ipynb`
