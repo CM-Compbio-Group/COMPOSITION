@@ -112,7 +112,7 @@ def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=
 
     return model, model_ct, model_ff
 
-def step3_postprocess(data, model, model_ct, model_ff):
+def step3_postprocess(data, model, model_ct, model_ff, n_clusters=8):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     model_ff = model_ff.to(device)
@@ -142,7 +142,7 @@ def step3_postprocess(data, model, model_ct, model_ff):
 
     niche_composition = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0)
 
-    pred_domains = KMeans(n_clusters=8, random_state=0).fit_predict(p.detach().cpu())
+    pred_domains = KMeans(n_clusters=n_clusters, random_state=0).fit_predict(p.detach().cpu())
                                   
     return p, cell_types_niche, cell_types_vae, niche_composition, pred_domains, recon_celltype, logits
     
