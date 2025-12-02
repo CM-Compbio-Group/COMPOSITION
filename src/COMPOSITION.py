@@ -49,6 +49,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
     else:
         ensure_xy_from_obs(adata)
         adata.obsm['spatial'] = adata.obs[['x', 'y']].values
+    adata_orig.obs[['x', 'y']] = adata.obs[['x', 'y']] # for use outside this function
     sq.gr.spatial_neighbors(adata, coord_type='generic', delaunay=True, spatial_key='spatial')
     cc.gr.remove_long_links(adata)
     adjacency = adata.obsp['spatial_connectivities']
