@@ -1,6 +1,6 @@
 # COMPOSITION
 
-COMPOSITION is a hierarchical model for single-cell spatial transcriptomics (SRT) data that represents these datasets as multi-scale features. Our group, Cong Ma Research Group, designed and implemented a VAE-based architecture with separate encoder–decoder modules that link molecular data to cell types, niches, and their co-enrichments, and we derived the ELBO for the multi-layer latent spaces to ground the probabilistic model in variational inference. This formulation makes hierarchical spatial structure explicit and stable, and GPU-accelerated inference allows processing of ~500k cells within minutes. We also incorporated computer-vision–inspired postprocessing to capture continuous spatial gradients, enabling the model to detect subtle, biologically meaningful patterns that are often missed by standard clustering.
+COMPOSITION is a hierarchical probabilistic model for single-cell spatial transcriptomics that represents tissues at multiple scales, from individual cell types to local niches and higher-order domains. We, Cong Ma Research Group, implement this hierarchy using two coupled variational autoencoder (VAE) networks whose encoder–decoder pairs link molecular profiles to latent variables at each layer, and we show that their training objective is equivalent to variational inference in our generative model with explicit conditional dependencies between adjacent layers. This formulation makes the multi-layer spatial structure of the tissue explicit and numerically stable, and GPU-accelerated inference scales to ~0.5M cells in about 18 minutes (e.g., a Visium HD mouse brain sample), while achieving domain inference accuracy comparable to state-of-the-art methods. By combining the hierarchical model with computer-vision–inspired postprocessing, COMPOSITION recovers biologically meaningful co-localized cell-type groups and continuous spatial gradients of cell-type composition that are often missed by standard clustering-based spatial domain identification approaches.
 
 <br>
 
@@ -41,3 +41,7 @@ pip install numpy==1.26.4
 ## How to Use
 
 * Please refer to `tutorial/COMPOSITION_mouse_hypothalamus.ipynb`
+
+## Fun Fact
+
+* Interestingly, the name COMPOSITION is inspired by Piet Mondrian’s “Composition with Red, Blue and Yellow”, and our simulated data visually resembles that painting.
