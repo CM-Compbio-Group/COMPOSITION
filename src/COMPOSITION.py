@@ -83,7 +83,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
     )
     return data, dataloader
 
-def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, tanh_thr=0.005, minibatch=False):
+def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, minibatch=False, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy1=2.0, wloss_entropy2=0.8, tanh_thr=0.005, grad_clip=100, l1_ratio=0, lr=9e-3, epochs1=3000, epochs2=600):
     pyg.seed_everything(seed)
     
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
@@ -91,14 +91,14 @@ def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=
     model_ff = FFPredict(num_topics, n_celltypes)
     
     if not minibatch:
-        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy=2.0, tanh_thr=tanh_thr, grad_clip=100, l1_ratio=0, lr=9e-3, epochs=3000)
+        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs1)
 
-        [model, model_ct, model_ff], device, loss_values = train_concat(data, model, model_ct, model_ff, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy=0.8, tanh_thr=tanh_thr, grad_clip=100, l1_ratio=0, lr=9e-3, epochs=3000)
+        [model, model_ct, model_ff], device, loss_values = train_concat(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs1)
 
     else:
-        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy=2.0, tanh_thr=tanh_thr, grad_clip=100, l1_ratio=0, lr=9e-3, epochs=600)
+        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs2)
 
-        [model, model_ct, model_ff], device, loss_values = train_batch_concat(dataloader, model, model_ct, model_ff, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy=0.8, tanh_thr=tanh_thr, grad_clip=100, l1_ratio=0, lr=9e-3, epochs=600)
+        [model, model_ct, model_ff], device, loss_values = train_batch_concat(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs2)
 
     plt.figure()
     plt.plot(loss_values)
@@ -111,7 +111,7 @@ def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=
     plt.show()
 
     return model, model_ct, model_ff
-
+    
 def step3_postprocess(data, model, model_ct, model_ff, n_clusters=8):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
