@@ -474,7 +474,7 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
         elif optim=='adam':
             optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas)
         elif optim=='adamw':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
             optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), weight_decay=weight_decay)  
     else:
@@ -483,7 +483,7 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
         elif optim=='adam':
             optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
         elif optim=='adamw':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
             optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
     
@@ -633,7 +633,7 @@ def train_batch_concat(dataloader, model, model_ct, model_ff, epochs=1500, tempe
         elif optim=='adam':
             optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
         elif optim=='adamw':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
             optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
     else:
@@ -642,7 +642,7 @@ def train_batch_concat(dataloader, model, model_ct, model_ff, epochs=1500, tempe
         elif optim=='adam':
             optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
         elif optim=='adamw':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
             optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
     
@@ -788,7 +788,7 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
         elif optim=='adam':
             optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas)
         elif optim=='adamw':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
             optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), weight_decay=weight_decay )
     else:
@@ -797,7 +797,7 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
         elif optim=='adam':
             optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
         elif optim=='adamw':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
             optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
 
@@ -953,7 +953,7 @@ def train_concat(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, 
         elif optim=='adam':
             optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
         elif optim=='adamw':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
             optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )
     else:
@@ -962,7 +962,7 @@ def train_concat(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, 
         elif optim=='adam':
             optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
         elif optim=='adamw':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
             optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
 
