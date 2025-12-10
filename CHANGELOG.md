@@ -55,3 +55,6 @@ All notable changes to this project will be documented in this file.
 
 #### Added - 2025-12-01
 - Added wrapper functions for ease of use
+
+#### Added - 2025-12-09
+- Added a parameter that allows selecting among multiple optimizers
