@@ -83,7 +83,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
     )
     return data, dataloader
 
-def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, minibatch=False, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy1=2.0, wloss_entropy2=0.8, tanh_thr=0.005, grad_clip=100, l1_ratio=0, lr=9e-3, epochs1=3000, epochs2=600):
+def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, minibatch=False, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy1=2.0, wloss_entropy2=0.8, tanh_thr=0.005, grad_clip=100, l1_ratio=0, optim='adam', lr=lr=9e-3, weight_decay=0, momentum=0, epochs1=3000, epochs2=600):
     pyg.seed_everything(seed)
     
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
@@ -91,14 +91,14 @@ def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=
     model_ff = FFPredict(num_topics, n_celltypes)
     
     if not minibatch:
-        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs1)
+        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs1)
 
-        [model, model_ct, model_ff], device, loss_values = train_concat(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs1)
+        [model, model_ct, model_ff], device, loss_values = train_concat(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs1)
 
     else:
-        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs2)
+        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs2)
 
-        [model, model_ct, model_ff], device, loss_values = train_batch_concat(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs2)
+        [model, model_ct, model_ff], device, loss_values = train_batch_concat(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs2)
 
     plt.figure()
     plt.plot(loss_values)
@@ -451,7 +451,7 @@ class FFPredict(nn.Module):
 
 
 # train data
-def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=5e-3, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
+def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     """
     Simultaneous model training for VGAE(model), VAE(model_ct), and FFPredict(model_ff)
     dataloader : mini-batch loader, e.g. NeighborLoader
@@ -469,9 +469,19 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
         wtanh = dataloader.data.x.shape[0] / 60
                     
     if spotwise_celltype_probability is None:    
-        optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        if optim=='sgd':
+            optimizer = torch.optim.SGD( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
+        elif optim=='adam':
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        elif optim=='adagrad':
+            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
     else:
-        optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        if optim=='sgd':
+            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
+        elif optim=='adam':
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        elif optim=='adagrad':
+            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
     
     model.train()                  # switch to training mode
     model_ct.train()               # switch to training mode
@@ -596,7 +606,7 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
     return [model, model_ct, model_ff], device, loss_values
 
 # train data
-def train_batch_concat(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=5e-3, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
+def train_batch_concat(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     """
     Simultaneous model training for VGAE(model), VAE(model_ct), and FFPredict(model_ff)
     dataloader : mini-batch loader, e.g. NeighborLoader
@@ -613,10 +623,20 @@ def train_batch_concat(dataloader, model, model_ct, model_ff, epochs=1500, tempe
     if wtanh is None:
         wtanh = dataloader.data.x.shape[0] / 100
                     
-    if spotwise_celltype_probability is None:    
-        optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+    if spotwise_celltype_probability is None:   
+        if optim=='sgd':
+            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
+        elif optim=='adam':
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        elif optim=='adagrad':
+            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
     else:
-        optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        if optim=='sgd':
+            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
+        elif optim=='adam':
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        elif optim=='adagrad':
+            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
     
     model.train()                  # switch to training mode
     #model_ct.train()               # switch to training mode
@@ -726,7 +746,7 @@ def train_batch_concat(dataloader, model, model_ct, model_ff, epochs=1500, tempe
     return [model, model_ct, model_ff], device, loss_values
 
 # train data
-def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=5e-3, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
+def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     """
     Train the VGAE, VAE, and feed-forward predictor jointly.
 
@@ -755,9 +775,19 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=5e-3
         wtanh = data.x.shape[0] / 60
 
     if spotwise_celltype_probability is None:
-        optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        if optim=='sgd':
+            optimizer = torch.optim.SGD( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
+        elif optim=='adam':
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        elif optim=='adagrad':
+            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), weight_decay=weight_decay )
     else:
-        optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        if optim=='sgd':
+            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
+        elif optim=='adam':
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        elif optim=='adagrad':
+            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
 
     model.train()                   # switch to training mode
     model_ct.train()                # switch to training mode
@@ -877,7 +907,7 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=5e-3
 
 
 # train data
-def train_concat(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=5e-3, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
+def train_concat(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     """
     Train the VGAE, VAE, and feed-forward predictor jointly.
 
@@ -906,9 +936,19 @@ def train_concat(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, 
         wtanh = data.x.shape[0] / 100
 
     if spotwise_celltype_probability is None:
-        optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        if optim=='sgd':
+            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
+        elif optim=='adam':
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        elif optim=='adagrad':
+            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )
     else:
-        optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        if optim=='sgd':
+            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
+        elif optim=='adam':
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+        elif optim=='adagrad':
+            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
 
     model.train()                   # switch to training mode
     #model_ct.train()                # switch to training mode
