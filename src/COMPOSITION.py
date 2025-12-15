@@ -610,7 +610,7 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
     return [model, model_ct, model_ff], device, loss_values
 
 # train data
-def train_batch_concat(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
+def train_batch_2nd(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     """
     Simultaneous model training for VGAE(model), VAE(model_ct), and FFPredict(model_ff)
     dataloader : mini-batch loader, e.g. NeighborLoader
@@ -919,7 +919,7 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
 
 
 # train data
-def train_concat(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
+def train_2nd(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     """
     Train the VGAE, VAE, and feed-forward predictor jointly.
 
