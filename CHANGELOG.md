@@ -59,5 +59,8 @@ All notable changes to this project will be documented in this file.
 #### Added - 2025-12-09
 - Added a parameter that allows selecting among multiple optimizers
 
-#### Fixed - 2025-12-15
+#### Fixed - 2025-12-14
 - Renamed train_concat and train_batch_concat to train_2nd and train_batch_2nd
+
+#### Fixed - 2025-12-15
+- Adopted genewise variance instead of single variance
