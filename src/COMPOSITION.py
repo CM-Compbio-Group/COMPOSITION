@@ -295,7 +295,7 @@ class VAE(nn.Module):
             # nn.Linear(hidden_dim, input_dim),
         )
 
-        self.log_sigma2 = nn.Parameter(torch.tensor(0.0))
+        self.log_sigma2 = nn.Parameter(torch.zeros(self.input_dim))
 
     def reparameterize_gumbel_softmax(self, logits, temperature):
         # Gumbel-softmax reparameterization
@@ -325,29 +325,29 @@ class VAE(nn.Module):
 
 
 def vae_loss(recon_x, x, logits, log_sigma2, beta=1.0):
-    """ 
-    Args:
-        recon_x (torch.Tensor): Reconstructed input features. [real number]
-        x (torch.Tensor): Original input features. [real number]
-        logits (torch.Tensor): Logits from the encoder. [real number]
-        beta (float): Weighting factor for KL divergence. [positive real number]
-
-    Returns:
-        torch.Tensor: Combined loss value. [positive real number]
     """
-    
-    ##recon_loss0 = nn.MSELoss(reduction='sum')(recon_x, x)
-    # Equivalently, recon_loss0 = (x - recon_x).square().sum()
-    ##recon_loss = recon_loss0 / (x.var(unbiased=False) + 1e-8) * 3 # normalization for generalizability across data
+    recon_x: (B, G)
+    x      : (B, G)
+    logits : (B, latent_dim, num_categories)
+    log_sigma2: (G,)   # genewise log-variance
+    """
 
-    sigma2 = torch.exp(log_sigma2) + 1e-8            # scalar
-    nll_elem = 0.5 * (torch.log(sigma2) + (x - recon_x)**2 / sigma2)  # (B,G)
-    recon_loss = nll_elem.sum(dim=1).sum()
-    
+    # genewise variance (shape: [G])
+    sigma2 = torch.exp(log_sigma2) + 1e-8   # (G,)
+
+    # broadcasting: (B, G) - (B, G), sigma2 (G,) → (B, G)
+    nll_elem = 0.5 * (log_sigma2 + (x - recon_x)**2 / sigma2)  # (B, G)
+
+    # batch/gene total sum
+    recon_loss = nll_elem.sum()
+
+    # KL as original
     q = F.softmax(logits, dim=-1)
     log_q = F.log_softmax(logits, dim=-1)
-    kl_div = (q * (log_q - torch.log(torch.tensor(1.0 / logits.size(-1), device=logits.device)))).sum(dim=-1).sum()
-    
+    kl_div = (q * (log_q - torch.log(
+        torch.tensor(1.0 / logits.size(-1), device=logits.device)
+    ))).sum(dim=-1).sum()
+
     return recon_loss + beta * kl_div
 
 
