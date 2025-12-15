@@ -344,9 +344,7 @@ def vae_loss(recon_x, x, logits, log_sigma2, beta=1.0):
     # KL as original
     q = F.softmax(logits, dim=-1)
     log_q = F.log_softmax(logits, dim=-1)
-    kl_div = (q * (log_q - torch.log(
-        torch.tensor(1.0 / logits.size(-1), device=logits.device)
-    ))).sum(dim=-1).sum()
+    kl_div = (q * (log_q - torch.log(torch.tensor(1.0 / logits.size(-1), device=logits.device)))).sum(dim=-1).sum()
 
     return recon_loss + beta * kl_div
 
