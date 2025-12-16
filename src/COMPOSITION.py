@@ -544,15 +544,14 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
                 loss_recon = 0
                 tensor_target = torch.from_numpy(spotwise_celltype_probability).to(torch.float32)
                 tensor_target = tensor_target.to(device)
-                recon_celltype = F.softmax(model_ff(p)) 
-                loss_clf = -(tensor_target * (recon_celltype+1e-10).log()).sum() * wloss_clf
-            
+                recon_celltype = model_ff(p)
+                eps = 1e-12
+                log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
+                loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
             
             loss = loss_spatial + loss_KLD + loss_entropy + loss_recon + loss_clf + l1_ratio * z.abs().sum(axis=0).sum() -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum()
                                                              # l1_ratio*model_ff(p).abs().sum(axis=0).sum()
-            
             epoch_loss += loss.item()
-
             loss.backward()             # backprop
             
             if grad_clip is not None:              # Gradient Clipping for Gradient Explosion
@@ -688,15 +687,14 @@ def train_batch_2nd(dataloader, model, model_ct, model_ff, epochs=1500, temperat
                 loss_recon = 0
                 tensor_target = torch.from_numpy(spotwise_celltype_probability).to(torch.float32)
                 tensor_target = tensor_target.to(device)
-                recon_celltype = F.softmax(model_ff(p)) 
-                loss_clf = -(tensor_target * (recon_celltype+1e-10).log()).sum() * wloss_clf
-            
+                recon_celltype = model_ff(p)
+                eps = 1e-12
+                log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
+                loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
             
             loss = loss_spatial + loss_KLD + loss_entropy + loss_clf + l1_ratio * z.abs().sum(axis=0).sum() -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum()
                                                              # l1_ratio*model_ff(p).abs().sum(axis=0).sum()
-            
             epoch_loss += loss.item()
-
             loss.backward()             # backprop
             
             if grad_clip is not None:              # Gradient Clipping for Gradient Explosion
@@ -855,8 +853,10 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
             loss_recon = 0
             tensor_target = torch.from_numpy(spotwise_celltype_probability).to(torch.float32)
             tensor_target = tensor_target.to(device)
-            recon_celltype = F.softmax(model_ff(p)) 
-            loss_clf = -(tensor_target * (recon_celltype+1e-10).log()).sum() * wloss_clf
+            recon_celltype = model_ff(p)
+            eps = 1e-12
+            log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
+            loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
         
         loss = loss_spatial + loss_KLD + loss_entropy + loss_recon + loss_clf + l1_ratio *  z.abs().sum(axis=0).sum()  -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum()
                                         #p_cell = F.softmax(model_ff.fc1.weight, dim=0)
@@ -1005,14 +1005,15 @@ def train_2nd(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, opt
             loss_recon = 0
             tensor_target = torch.from_numpy(spotwise_celltype_probability).to(torch.float32)
             tensor_target = tensor_target.to(device)
-            recon_celltype = F.softmax(model_ff(p)) 
-            loss_clf = -(tensor_target * (recon_celltype+1e-10).log()).sum() * wloss_clf
+            recon_celltype = model_ff(p)
+            eps = 1e-12
+            log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
+            loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
         
         loss = loss_spatial + loss_KLD + loss_entropy + loss_clf + l1_ratio *  z.abs().sum(axis=0).sum()  -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum() #+ loss_recon 
                                         #p_cell = F.softmax(model_ff.fc1.weight, dim=0)
                                         #l1_ratio * -(p_cell * torch.log(p_cell + EPS)).sum()
                                         #l1_ratio*model_ff(p).abs().sum(axis=0).sum()
-        
         loss_values.append( loss.item() )
         loss.backward()             # backprop
         
