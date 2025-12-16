@@ -64,3 +64,6 @@ All notable changes to this project will be documented in this file.
 
 #### Fixed - 2025-12-15
 - Adopted genewise variance instead of single variance
+
+#### Fixed - 2025-12-16
+- Fixed the loss_clf term for the case spotwise_celltype_probability is given
