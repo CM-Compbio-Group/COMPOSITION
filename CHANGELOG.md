@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - Created the initial code combining [VGAE](https://arxiv.org/abs/1611.07308) and [VAE](https://arxiv.org/abs/1611.01144)
 
 #### Changed - 2025-06-05
-- Introduced the penalty term on z
+- Introduced the penalty term on $z$
 
 #### Added - 2025-06-25
 - Added the initial code to Github repo
@@ -18,13 +18,13 @@ All notable changes to this project will be documented in this file.
 - Changed the VGAE encoder to ProdLDA to seamlessly perform latent Dirichlet allocation
 
 #### Changed - 2025-07-28
-- Adopted the sparsity on p instead the sparsity on z
+- Adopted the sparsity on $p$ instead the sparsity on $z$
 
 #### Changed - 2025-08-26
-- Discarded the sparsity on p and used the Dirichlet prior with low alpha
+- Discarded the sparsity on $p$ and used the Dirichlet prior with low alpha
 
 #### Fixed - 2025-09-03
-- Returned to the sparsity on p
+- Returned to the sparsity on $p$
 
 #### Changed - 2025-09-12
 - Modified FFPredict to follow an LDA-style from the previous ProdLDA-style to avoid overfitting
@@ -39,7 +39,7 @@ All notable changes to this project will be documented in this file.
 - Variance fitting before entropy loss comes in, temperature annealing after entropy loss fixed, tanh loss for higher # of non-blanks
 
 #### Remark - 2025-10-30
-- Identified the importance of averaging multiple p matrices from a fixed model
+- Identified the importance of averaging multiple $p$ matrices from a fixed model
 
 #### Added - 2025-11-04
 - Added train_concat
