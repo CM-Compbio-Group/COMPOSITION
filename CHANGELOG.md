@@ -67,3 +67,6 @@ All notable changes to this project will be documented in this file.
 
 #### Fixed - 2025-12-16
 - Fixed the loss_clf term for the case spotwise_celltype_probability is given
+
+#### Added - 2026-01-03
+- Added coupling_weight for better training model_ct
