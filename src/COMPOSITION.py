@@ -93,12 +93,12 @@ def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=
     if not minibatch:
         [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs1)
 
-        [model, model_ct, model_ff], device, loss_values = train_concat(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs1)
+        [model, model_ct, model_ff], device, loss_values = train_2nd(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs1)
 
     else:
         [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs2)
 
-        [model, model_ct, model_ff], device, loss_values = train_batch_concat(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs2)
+        [model, model_ct, model_ff], device, loss_values = train_batch_2nd(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs2)
 
     plt.figure()
     plt.plot(loss_values)
