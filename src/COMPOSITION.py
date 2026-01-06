@@ -518,7 +518,7 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
                 loss_entropy = 0.5 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
                 t_anneal = 1
                 if epoch == int(epochs/6):
-                    log_sigma2_fixed = model_ct.log_sigma2.data
+                    log_sigma2_fixed = model_ct.log_sigma2.detach()
                 log_sigma2 = log_sigma2_fixed
             elif epoch < int(3*epochs/6):
                 loss_entropy = 1.0 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
@@ -668,7 +668,7 @@ def train_batch_2nd(dataloader, model, model_ct, model_ff, epochs=1500, temperat
             
             # favor a low entropy of p
             EPS = 1e-20
-            log_sigma2 = model_ct.log_sigma2.data
+            log_sigma2 = model_ct.log_sigma2.detach()
             t_anneal = temperature
             loss_entropy = 1.5 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
     
@@ -677,7 +677,7 @@ def train_batch_2nd(dataloader, model, model_ct, model_ff, epochs=1500, temperat
                 recon_x, logits, logits_re = model_ct(batch.x, temperature=t_anneal)
                 #loss_recon = wloss_recon * vae_loss(recon_x, batch.x, logits, log_sigma2)
     
-                tensor_target = logits_re.squeeze(1)
+                tensor_target = logits_re.squeeze(1).detach()
                 recon_celltype = model_ff(p)
                 eps = 1e-12
                 log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
@@ -827,7 +827,7 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
             loss_entropy = 0.5 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
             t_anneal = 1
             if epoch == int(epochs/6):
-                log_sigma2_fixed = model_ct.log_sigma2.data
+                log_sigma2_fixed = model_ct.log_sigma2.detach()
             log_sigma2 = log_sigma2_fixed
         elif epoch < int(3*epochs/6):
             loss_entropy = 1.0 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
@@ -986,7 +986,7 @@ def train_2nd(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, opt
 
         # favor a low entropy of p
         EPS = 1e-20
-        log_sigma2 = model_ct.log_sigma2.data
+        log_sigma2 = model_ct.log_sigma2.detach()
         t_anneal = temperature
         loss_entropy = 1.5 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
         
@@ -995,7 +995,7 @@ def train_2nd(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, opt
             recon_x, logits, logits_re = model_ct(data.x, temperature=t_anneal)
             #loss_recon = wloss_recon * vae_loss(recon_x, data.x, logits, log_sigma2)
 
-            tensor_target = logits_re.squeeze(1)
+            tensor_target = logits_re.squeeze(1).detach()
             recon_celltype = model_ff(p)
             eps = 1e-12
             log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
