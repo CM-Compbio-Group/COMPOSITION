@@ -72,4 +72,4 @@ All notable changes to this project will be documented in this file.
 - Added coupling_weight for better training model_ct
 
 #### Fixed - 2026-01-06
-- model_ct.log_sigma2.detach() instead of model_ct.log_sigma2.data
+- Used model_ct.log_sigma2.detach() instead of model_ct.log_sigma2.data
