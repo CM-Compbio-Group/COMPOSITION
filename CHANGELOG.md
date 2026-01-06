@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 #### Created - 2025-03-05
-- Created the initial code combining [VGAE](https://arxiv.org/abs/1611.07308) and [VAE](https://arxiv.org/abs/1611.01144)
+- Created the initial code combining VGAE and VAE
 
 #### Changed - 2025-06-05
 - Introduced the penalty term on $z$
