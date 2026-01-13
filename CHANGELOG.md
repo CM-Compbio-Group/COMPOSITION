@@ -68,8 +68,5 @@ All notable changes to this project will be documented in this file.
 #### Fixed - 2025-12-16
 - Fixed the loss_clf term for the case spotwise_celltype_probability is given
 
-#### Added - 2026-01-03
-- Added coupling_weight for better training model_ct
-
 #### Fixed - 2026-01-06
 - Used model_ct.log_sigma2.detach() instead of model_ct.log_sigma2.data
