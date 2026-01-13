@@ -449,7 +449,7 @@ class FFPredict(nn.Module):
 
 
 # train data
-def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, coupling_weight=0.02, early_stopping=True, spotwise_celltype_probability=None):
+def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     """
     Simultaneous model training for VGAE(model), VAE(model_ct), and FFPredict(model_ff)
     dataloader : mini-batch loader, e.g. NeighborLoader
@@ -534,7 +534,7 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
                 recon_x, logits, logits_re = model_ct(batch.x, temperature=t_anneal)
                 loss_recon = wloss_recon * vae_loss(recon_x, batch.x, logits, log_sigma2)
     
-                tensor_target = logits_re.squeeze(1).detach() + coupling_weight * (logits_re.squeeze(1) - logits_re.squeeze(1).detach())
+                tensor_target = logits_re.squeeze(1)
                 recon_celltype = model_ff(p)
                 eps = 1e-12
                 log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
@@ -750,7 +750,7 @@ def train_batch_2nd(dataloader, model, model_ct, model_ff, epochs=1500, temperat
     return [model, model_ct, model_ff], device, loss_values
 
 # train data
-def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, coupling_weight=0.02, early_stopping=True, spotwise_celltype_probability=None):
+def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     """
     Train the VGAE, VAE, and feed-forward predictor jointly.
 
@@ -843,7 +843,7 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
             recon_x, logits, logits_re = model_ct(data.x, temperature=t_anneal)
             loss_recon = wloss_recon * vae_loss(recon_x, data.x, logits, log_sigma2)
 
-            tensor_target = logits_re.squeeze(1).detach() + coupling_weight * (logits_re.squeeze(1) - logits_re.squeeze(1).detach())
+            tensor_target = logits_re.squeeze(1)
             recon_celltype = model_ff(p)
             eps = 1e-12
             log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
