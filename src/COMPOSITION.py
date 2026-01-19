@@ -603,6 +603,7 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
 
     print(f"loss: {loss}")
     print(f"loss-loss_entropy: {loss-loss_entropy}")
+    print(f"loss_recon: {loss_recon}")
     print(f"loss_clf: {loss_clf}")
     return [model, model_ct, model_ff], device, loss_values
 
@@ -912,6 +913,7 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
 
     print(f"loss: {loss}")
     print(f"loss-loss_entropy: {loss-loss_entropy}")
+    print(f"loss_recon: {loss_recon}")
     print(f"loss_clf: {loss_clf}")
     return [model, model_ct, model_ff], device, loss_values
 
