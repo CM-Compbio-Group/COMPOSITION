@@ -112,7 +112,7 @@ def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=
 
     return model, model_ct, model_ff
     
-def step3_postprocess(data, model, model_ct, model_ff, n_clusters=8):
+def step3_postprocess(data, model, model_ct, model_ff, temperature=0.3, n_clusters=8):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     model_ff = model_ff.to(device)
@@ -136,7 +136,7 @@ def step3_postprocess(data, model, model_ct, model_ff, n_clusters=8):
     recon_celltype = model_ff(p)                                              # logits: (N, n_classes)
     cell_types_niche = recon_celltype.argmax(dim=1).cpu().numpy().astype(str)  # sc.pl.dotplot handles string label better
     
-    recon_x, logits, _ = model_ct(data.x.to(device), temperature=0.3)
+    recon_x, logits, _ = model_ct(data.x.to(device), temperature=temperature)
     logits = logits.squeeze(1)
     cell_types_vae = F.softmax(logits, dim=1).argmax(dim=1).cpu().numpy().astype(str)
 
