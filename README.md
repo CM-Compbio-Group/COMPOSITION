@@ -26,6 +26,7 @@ Alternatively, you can follow these steps:
 ```bash
 conda create -n minibatch python=3.10
 conda activate minibatch
+pip install jupyter jupyterlab
 pip install ipykernel
 python -m ipykernel install --user --name minibatch --display-name minibatch
 
