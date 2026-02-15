@@ -1,4 +1,4 @@
-name: minibatch
+name: composition
 channels:
   - conda-forge
 dependencies:
