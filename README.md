@@ -18,14 +18,14 @@ _**Planned Publication**_
 
 ```bash
 conda env create -f environment.yml
-conda activate minibatch
+conda activate composition
 ```
 
 Alternatively, you can follow these steps:
 
 ```bash
-conda create -n minibatch python=3.10
-conda activate minibatch
+conda create -n composition python=3.10
+conda activate composition
 pip install jupyter jupyterlab
 pip install ipykernel
 python -m ipykernel install --user --name minibatch --display-name minibatch
