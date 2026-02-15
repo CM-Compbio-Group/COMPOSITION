@@ -28,7 +28,7 @@ conda create -n composition python=3.10
 conda activate composition
 pip install jupyter jupyterlab
 pip install ipykernel
-python -m ipykernel install --user --name minibatch --display-name minibatch
+python -m ipykernel install --user --name composition --display-name composition
 
 pip install torch==2.1.0+cu118 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
 pip install torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://data.pyg.org/whl/torch-2.1.0+cu118.html
