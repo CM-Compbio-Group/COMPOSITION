@@ -91,8 +91,8 @@ def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=
 
     [model, model_ct, model_ff], device, loss_values = train_vae(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs)
 
-    recon_x, logits, _ = model_ct(data.x.to(device), temperature=temperature)
-    vae_z = _
+    recon_x, logits, logits_re = model_ct(data.x.to(device), temperature=temperature)
+    vae_z = logits_re
     vae_z = vae_z.squeeze(1)
     coords = spatial_coords[['x', 'y']].values
     
