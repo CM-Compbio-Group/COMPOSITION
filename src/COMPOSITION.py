@@ -93,12 +93,8 @@ def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=
     if not minibatch:
         [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs1)
 
-        [model, model_ct, model_ff], device, loss_values = train_2nd(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs1)
-
     else:
         [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs2)
-
-        [model, model_ct, model_ff], device, loss_values = train_batch_2nd(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy2, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs2)
 
     plt.figure()
     plt.plot(loss_values)
@@ -449,7 +445,7 @@ class FFPredict(nn.Module):
 
 
 # train data
-def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
+def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, epochs=600, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05):
     """
     Simultaneous model training for VGAE(model), VAE(model_ct), and FFPredict(model_ff)
     dataloader : mini-batch loader, e.g. NeighborLoader
@@ -458,6 +454,12 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
     """
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    if clf_class_weights is None:
+        clf_class_weights = torch.ones(model_ct.num_categories).to(device)
+    else:
+        clf_class_weights = clf_class_weights.to(device)
+    
     model = model.to(device)       # move model to GPU 
     model_ct = model_ct.to(device) # move model_ct to GPU
     model_ff = model_ff.to(device) # move model_ff to GPU 
@@ -534,20 +536,26 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
                 recon_x, logits, logits_re = model_ct(batch.x, temperature=t_anneal)
                 loss_recon = wloss_recon * vae_loss(recon_x, batch.x, logits, log_sigma2)
     
-                tensor_target = logits_re.squeeze(1)
+                tensor_target = logits_re.squeeze(1).detach() + coupling_weight * (logits_re.squeeze(1) - logits_re.squeeze(1).detach())
+                if adjacency is not None:
+                    tensor_target = adjacency @ tensor_target
                 recon_celltype = model_ff(p)
                 eps = 1e-12
                 log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
-                loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
+                #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
+                loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
                     
             else:
                 loss_recon = 0
                 tensor_target = torch.from_numpy(spotwise_celltype_probability).to(torch.float32)
                 tensor_target = tensor_target.to(device)
+                if adjacency is not None:
+                    tensor_target = adjacency @ tensor_target
                 recon_celltype = model_ff(p)
                 eps = 1e-12
                 log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
-                loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
+                #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
+                loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
             
             loss = loss_spatial + loss_KLD + loss_entropy + loss_recon + loss_clf + l1_ratio * z.abs().sum(axis=0).sum() -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum()
                                                              # l1_ratio*model_ff(p).abs().sum(axis=0).sum()
@@ -607,151 +615,9 @@ def train_batch(dataloader, model, model_ct, model_ff, epochs=1500, temperature=
     print(f"loss_clf: {loss_clf}")
     return [model, model_ct, model_ff], device, loss_values
 
-# train data
-def train_batch_2nd(dataloader, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
-    """
-    Simultaneous model training for VGAE(model), VAE(model_ct), and FFPredict(model_ff)
-    dataloader : mini-batch loader, e.g. NeighborLoader
-    epochs     : number of epochs
-    lr         : learning rate
-    """
-    
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)       # move model to GPU 
-    model_ct = model_ct.to(device) # move model_ct to GPU
-    model_ff = model_ff.to(device) # move model_ff to GPU 
-    if alpha is not None:
-        model.alpha=alpha
-    if wtanh is None:
-        wtanh = dataloader.data.x.shape[0] / 100
-                    
-    if spotwise_celltype_probability is None:   
-        if optim=='sgd':
-            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
-        elif optim=='adam':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
-        elif optim=='adamw':
-            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
-        elif optim=='adagrad':
-            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
-    else:
-        if optim=='sgd':
-            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
-        elif optim=='adam':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
-        elif optim=='adamw':
-            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
-        elif optim=='adagrad':
-            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
-    
-    model.train()                  # switch to training mode
-    #model_ct.train()               # switch to training mode
-    model_ff.train()               # switch to training mode
-                    
-    # loss fun
-    loss_connection = nn.CrossEntropyLoss(reduction='sum')
-    loss_mse = nn.MSELoss(reduction='sum')
-    loss_values = []
-    log_sigma2 = 0
-    log_sigma2_fixed = 0
-    
-    for epoch in range(epochs):
-        epoch_loss = 0
-        for batch in dataloader:
-            batch = batch.to(device)    # move data to GPU
-            optimizer.zero_grad()       # clear previous gradients
-
-            # VGAE
-            z, p, posterior_mean, posterior_logvar, posterior_var = model.encoder(batch.x, batch.edge_index)
-                        
-            loss_spatial = wloss_spatial * loss_mse(p[batch.edge_index[0]], p[batch.edge_index[1]])
-            loss_KLD = wloss_KLD * model.encoder.KLD(posterior_mean, posterior_logvar, posterior_var) 
-            
-            # favor a low entropy of p
-            EPS = 1e-20
-            log_sigma2 = model_ct.log_sigma2.detach()
-            t_anneal = temperature
-            loss_entropy = 1.5 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
-    
-            if spotwise_celltype_probability is None:
-                # VAE
-                recon_x, logits, logits_re = model_ct(batch.x, temperature=t_anneal)
-                #loss_recon = wloss_recon * vae_loss(recon_x, batch.x, logits, log_sigma2)
-    
-                tensor_target = logits_re.squeeze(1).detach()
-                recon_celltype = model_ff(p)
-                eps = 1e-12
-                log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
-                loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
-                    
-            else:
-                loss_recon = 0
-                tensor_target = torch.from_numpy(spotwise_celltype_probability).to(torch.float32)
-                tensor_target = tensor_target.to(device)
-                recon_celltype = model_ff(p)
-                eps = 1e-12
-                log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
-                loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
-            
-            loss = loss_spatial + loss_KLD + loss_entropy + loss_clf + l1_ratio * z.abs().sum(axis=0).sum() -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum()
-                                                             # l1_ratio*model_ff(p).abs().sum(axis=0).sum()
-            epoch_loss += loss.item()
-            loss.backward()             # backprop
-            
-            if grad_clip is not None:              # Gradient Clipping for Gradient Explosion
-                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-                #torch.nn.utils.clip_grad_norm_(model_ct.parameters(), grad_clip)
-                torch.nn.utils.clip_grad_norm_(model_ff.parameters(), grad_clip)
-            
-            optimizer.step()            # update parameters
-            
-        loss_values.append( epoch_loss ) 
-        #loss_values.append( epoch_loss / len(dataloader) ) 
-        
-        if epoch % 50 == 0:
-            print(f"Epoch {epoch} Loss: {epoch_loss}")
-
-        if early_stopping and len(loss_values) >= 20 and epoch > int(2*epochs/3) + 20:
-            import numpy as np
-            from sklearn.linear_model import LinearRegression
-
-            window = loss_values[-20:]
-            smoothed = np.convolve(window, np.ones(3)/3, mode='valid')
-            
-            # [1] count the number of increasing segments
-            count_up = sum(1 for prev, cur in zip(smoothed, smoothed[1:]) if cur > prev)
-        
-            # [2] calculate R^2 (lower R^2 when high vibration and low trend)
-            X = np.arange(len(window)).reshape(-1, 1)
-            y = np.array(window).reshape(-1, 1)
-            reg = LinearRegression().fit(X, y)
-            r2 = reg.score(X, y)
-        
-            # [3] little change
-            val_range = max(window) - min(window)
-            tolerance = 1e-4 * min(window)
-        
-            # [4] slight increase in recent loss
-            delta = window[-1] - window[0]
-            small_delta = 1e-3 * window[0]
-        
-            # Early termination when the condition is met
-            if (
-                count_up >= 13 or       # [1] frequent rise
-                r2 < 0.05 or            # [2] no trend
-                val_range < tolerance or# [3] little change
-                delta > small_delta     # [4] slight increase
-            ):
-                print(f"Early stopping at epoch {epoch+1}")
-                break        
-
-    print(f"loss: {loss}")
-    print(f"loss-loss_entropy: {loss-loss_entropy}")
-    print(f"loss_clf: {loss_clf}")
-    return [model, model_ct, model_ff], device, loss_values
 
 # train data
-def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
+def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05):
     """
     Train the VGAE, VAE, and feed-forward predictor jointly.
 
@@ -771,6 +637,11 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     data = data.to(device)
 
+    if clf_class_weights is None:
+        clf_class_weights = torch.ones(model_ct.num_categories).to(device)
+    else:
+        clf_class_weights = clf_class_weights.to(device)
+    
     model = model.to(device)       # move model to GPU 
     model_ct = model_ct.to(device)    # move model_ct to GPU 
     model_ff = model_ff.to(device) # move model_ff to GPU
@@ -844,20 +715,26 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
             recon_x, logits, logits_re = model_ct(data.x, temperature=t_anneal)
             loss_recon = wloss_recon * vae_loss(recon_x, data.x, logits, log_sigma2)
 
-            tensor_target = logits_re.squeeze(1)
+            tensor_target = logits_re.squeeze(1).detach() + coupling_weight * (logits_re.squeeze(1) - logits_re.squeeze(1).detach())
+            if adjacency is not None:
+                tensor_target = adjacency @ tensor_target
             recon_celltype = model_ff(p)
             eps = 1e-12
             log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
-            loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
+            #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
+            loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
             
         else:
             loss_recon = 0
             tensor_target = torch.from_numpy(spotwise_celltype_probability).to(torch.float32)
             tensor_target = tensor_target.to(device)
+            if adjacency is not None:
+                tensor_target = adjacency @ tensor_target
             recon_celltype = model_ff(p)
             eps = 1e-12
             log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
-            loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
+            #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
+            loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
         
         loss = loss_spatial + loss_KLD + loss_entropy + loss_recon + loss_clf + l1_ratio *  z.abs().sum(axis=0).sum()  -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum()
                                         #p_cell = F.softmax(model_ff.fc1.weight, dim=0)
@@ -918,57 +795,19 @@ def train(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='
     return [model, model_ct, model_ff], device, loss_values
 
 
-# train data
-def train_2nd(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
-    """
-    Train the VGAE, VAE, and feed-forward predictor jointly.
-
-    Args:
-        data (Data): PyTorch Geometric `Data` object containing node features and edge indices.
-        model (VGAE): VGAE model for learning spatial domains.
-        model_ct (VAE): VAE model for learning cell type representations.
-        model_ff (FFPredict): Feed-forward model for predicting cell types.
-        epochs (int): Number of training epochs.
-
-    Outputs:
-        model, model_ct, model_ff (torch.nn.Module): Trained models.
-        device (torch.device): The device (CPU/GPU) used for training.
-        loss_values (list): List of training loss values at each epoch.[positive real number]
-    """
+def train_vae(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=5e-3, alpha=None, betas=(0.9, 0.999),
+          wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005,
+          l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     data = data.to(device)
 
-    model = model.to(device)       # move model to GPU 
     model_ct = model_ct.to(device)    # move model_ct to GPU 
-    model_ff = model_ff.to(device) # move model_ff to GPU
     if alpha is not None:
         model.alpha=alpha
-    if wtanh is None:
-        wtanh = data.x.shape[0] / 100
 
-    if spotwise_celltype_probability is None:
-        if optim=='sgd':
-            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
-        elif optim=='adam':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
-        elif optim=='adamw':
-            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
-        elif optim=='adagrad':
-            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )
-    else:
-        if optim=='sgd':
-            optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
-        elif optim=='adam':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
-        elif optim=='adamw':
-            optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
-        elif optim=='adagrad':
-            optimizer = torch.optim.Adagrad( chain(model.parameters(), model_ff.parameters()), weight_decay=weight_decay )  
-
-    model.train()                   # switch to training mode
-    #model_ct.train()                # switch to training mode
-    model_ff.train()                # switch to training mode
+    optimizer = torch.optim.Adam( chain(model_ct.parameters()), lr=lr, betas=betas)
+    model_ct.train()                # switch to training mode
     
     # loss fun
     loss_connection = nn.CrossEntropyLoss(reduction='sum')
@@ -980,90 +819,40 @@ def train_2nd(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, opt
     for epoch in range(epochs):
         optimizer.zero_grad()       # clear previous gradients
         
-        # GVAE
-        z, p, posterior_mean, posterior_logvar, posterior_var = model.encoder(data.x, data.edge_index)
-        
-        loss_spatial = wloss_spatial * loss_mse(p[data.edge_index[0]], p[data.edge_index[1]])       
-        loss_KLD = wloss_KLD * model.encoder.KLD(posterior_mean, posterior_logvar, posterior_var)
-
         # favor a low entropy of p
         EPS = 1e-20
-        log_sigma2 = model_ct.log_sigma2.detach()
-        t_anneal = temperature
-        loss_entropy = 1.5 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
-        
-        if spotwise_celltype_probability is None:
-            # VAE
-            recon_x, logits, logits_re = model_ct(data.x, temperature=t_anneal)
-            #loss_recon = wloss_recon * vae_loss(recon_x, data.x, logits, log_sigma2)
-
-            tensor_target = logits_re.squeeze(1).detach()
-            recon_celltype = model_ff(p)
-            eps = 1e-12
-            log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
-            loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
-            
+        if epoch < int(epochs/6):
+            t_anneal = 1
+            log_sigma2 = model_ct.log_sigma2
+        elif epoch < int(2*epochs/6):
+            t_anneal = 1
+            if epoch == int(epochs/6):
+                log_sigma2_fixed = model_ct.log_sigma2.detach()
+            log_sigma2 = log_sigma2_fixed
+        elif epoch < int(3*epochs/6):
+            t_anneal = 1
+            log_sigma2 = log_sigma2_fixed
         else:
-            loss_recon = 0
-            tensor_target = torch.from_numpy(spotwise_celltype_probability).to(torch.float32)
-            tensor_target = tensor_target.to(device)
-            recon_celltype = model_ff(p)
-            eps = 1e-12
-            log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
-            loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
+            t_anneal = max(temperature, 1.0 - (1.0-temperature)/500 * (epoch - int(epochs/2)) )
+            log_sigma2 = log_sigma2_fixed
         
-        loss = loss_spatial + loss_KLD + loss_entropy + loss_clf + l1_ratio *  z.abs().sum(axis=0).sum()  -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum() #+ loss_recon 
-                                        #p_cell = F.softmax(model_ff.fc1.weight, dim=0)
-                                        #l1_ratio * -(p_cell * torch.log(p_cell + EPS)).sum()
-                                        #l1_ratio*model_ff(p).abs().sum(axis=0).sum()
+        # VAE
+        recon_x, logits, logits_re = model_ct(data.x, temperature=t_anneal)
+        loss_recon = wloss_recon * vae_loss(recon_x, data.x, logits, log_sigma2)
+
+        tensor_target = logits_re.squeeze(1)
+        
+        loss = loss_recon 
         loss_values.append( loss.item() )
         loss.backward()             # backprop
         
         if grad_clip is not None:              # Gradient Clipping for Gradient Explosion
-            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-            #torch.nn.utils.clip_grad_norm_(model_ct.parameters(), grad_clip)
-            torch.nn.utils.clip_grad_norm_(model_ff.parameters(), grad_clip)
-        
+            torch.nn.utils.clip_grad_norm_(model_ct.parameters(), grad_clip)
+            
         optimizer.step()            # update parameters
         
         if epoch % 50 == 0:
             print(f"Epoch {epoch} Loss: {loss.item()}")
         
-        if early_stopping and len(loss_values) >= 20 and epoch > int(2*epochs/3) + 20:
-            import numpy as np
-            from sklearn.linear_model import LinearRegression
-
-            window = loss_values[-20:]
-            smoothed = np.convolve(window, np.ones(3)/3, mode='valid')
-            
-            # [1] count the number of increasing segments
-            count_up = sum(1 for prev, cur in zip(smoothed, smoothed[1:]) if cur > prev)
-        
-            # [2] calculate R^2 (lower R^2 when high vibration and low trend)
-            X = np.arange(len(window)).reshape(-1, 1)
-            y = np.array(window).reshape(-1, 1)
-            reg = LinearRegression().fit(X, y)
-            r2 = reg.score(X, y)
-        
-            # [3] little change
-            val_range = max(window) - min(window)
-            tolerance = 1e-4 * min(window)
-        
-            # [4] slight increase in recent loss
-            delta = window[-1] - window[0]
-            small_delta = 1e-3 * window[0]
-        
-            # Early termination when the condition is met
-            if (
-                count_up >= 13 or       # [1] frequent rise
-                r2 < 0.05 or            # [2] no trend
-                val_range < tolerance or# [3] little change
-                delta > small_delta     # [4] slight increase 
-            ):
-                print(f"Early stopping at epoch {epoch+1}")
-                break        
-
     print(f"loss: {loss}")
-    print(f"loss-loss_entropy: {loss-loss_entropy}")
-    print(f"loss_clf: {loss_clf}")
     return [model, model_ct, model_ff], device, loss_values
