@@ -120,7 +120,6 @@ def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=16, n_cel
     vae_z_np = vae_z.detach().cpu().numpy()
     vae_argmax = np.argmax(vae_z_np, axis=1)
     unique_info_cell_type = []
-    fig, axes = plt.subplots(4, 5, figsize=(20,16))
     for i in range(n_celltypes):
         joint_prob = pd.concat([
             pd.Series(block_id[vae_argmax == i]).value_counts(),
