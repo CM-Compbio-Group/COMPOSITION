@@ -83,7 +83,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
     )
     return data, dataloader
 
-def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, minibatch=False, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy=2.0, tanh_thr=0.005, grad_clip=100, l1_ratio=0, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs1=3000, epochs2=600):
+def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, minibatch=False, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy=2.0, tanh_thr=0.005, grad_clip=100, l1_ratio=0, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs=3000):
     pyg.seed_everything(seed)
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
     model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes)
