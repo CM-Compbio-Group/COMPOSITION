@@ -83,18 +83,64 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
     )
     return data, dataloader
 
-def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, minibatch=False, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy1=2.0, wloss_entropy2=0.8, tanh_thr=0.005, grad_clip=100, l1_ratio=0, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs1=3000, epochs2=600):
+def step2_run(data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, minibatch=False, temperature=0.3, early_stopping=False, alpha=1, wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_entropy=2.0, tanh_thr=0.005, grad_clip=100, l1_ratio=0, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs1=3000, epochs2=600):
     pyg.seed_everything(seed)
-    
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
     model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes)
     model_ff = FFPredict(num_topics, n_celltypes)
+
+    [model, model_ct, model_ff], device, loss_values = train_vae(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs)
+
+    vae_z = _
+    vae_z = vae_z.squeeze(1)
+    coords = spatial_coords[['x', 'y']].values
     
+    p = 4
+    # partition the range of x and y axes
+    EPS = 1e-8
+    px = np.ones(p) * 1.0 / p
+    px[-1] -= EPS
+    xboundary = np.percentile(coords[:, 0], 100 * np.cumsum(px))
+    xboundary[-1] = np.max(coords[:, 0]) + 1
+    xdigit = np.digitize(coords[:, 0], xboundary, right=True)
+    ydigit = np.zeros(coords.shape[0], dtype=int)
+    for x in range(p):
+        idx_xbin = np.where(xdigit == x)[0]
+        py = np.ones(p) * 1.0 / p
+        py[-1] -= EPS
+        yboundary = np.percentile(coords[idx_xbin, 1], 100 * np.cumsum(py))
+        yboundary[-1] = np.max(coords[:, 1]) + 1
+        ydigit[idx_xbin] = np.digitize(coords[idx_xbin, 1], yboundary, right=True)
+    block_id = xdigit * p + ydigit
+    background = 1.0 * np.bincount(block_id) / len(block_id)
+    background
+    vae_z_np = vae_z.detach().cpu().numpy()
+    vae_argmax = np.argmax(vae_z_np, axis=1)
+    unique_info_cell_type = []
+    fig, axes = plt.subplots(4, 5, figsize=(20,16))
+    for i in range(n_celltypes):
+        joint_prob = pd.concat([
+            pd.Series(block_id[vae_argmax == i]).value_counts(),
+            pd.Series(block_id[vae_argmax != i]).value_counts()
+        ], axis=1)
+    
+        joint_prob.fillna(0, inplace=True)
+        joint_prob = joint_prob.values / joint_prob.values.sum()    
+        cond_entropy = scipy.stats.entropy(joint_prob.flatten()) - scipy.stats.entropy(joint_prob.sum(axis=1))
+        unique_info_cell_type.append(cond_entropy / scipy.stats.entropy(joint_prob.sum(axis=0)))    
+    weights = np.where( (np.array(unique_info_cell_type) > 0.95) | (np.mean(vae_z_np, axis=0) <= 0.01), 0.1, 1.0)
+    clf_class_weights = torch.from_numpy(weights.reshape(1,-1)).to(torch.float32)
+    np.where(weights > 0.5)[0]
+
+    pyg.seed_everything(seed)
+    model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
+    model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes)
+    model_ff = FFPredict(num_topics, n_celltypes)
     if not minibatch:
-        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs1)
+        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, clf_class_weights=clf_class_weights / clf_class_weights.mean(), temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
 
     else:
-        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy1, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs2)
+        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=clf_class_weights / clf_class_weights.mean(), temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
 
     plt.figure()
     plt.plot(loss_values)
@@ -466,7 +512,7 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
     if alpha is not None:
         model.alpha=alpha
     if wtanh is None:
-        wtanh = dataloader.data.x.shape[0] / 60
+        wtanh = 0 #dataloader.data.x.shape[0] / 60
                     
     if spotwise_celltype_probability is None:    
         if optim=='sgd':
@@ -648,7 +694,7 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
     if alpha is not None:
         model.alpha=alpha
     if wtanh is None:
-        wtanh = data.x.shape[0] / 60
+        wtanh = 0 #data.x.shape[0] / 60
 
     if spotwise_celltype_probability is None:
         if optim=='sgd':
