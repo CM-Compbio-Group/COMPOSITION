@@ -70,3 +70,12 @@ All notable changes to this project will be documented in this file.
 
 #### Fixed - 2026-01-06
 - Used model_ct.log_sigma2.detach() instead of model_ct.log_sigma2.data
+
+#### Deleted - 2026-02-18
+- Deleted train_batch_2nd
+- Deleted train_2nd
+
+#### Added - 2026-02-18
+- Added clf_class_weights in train and train_batch
+- Added train_vae
+- Added coupling_weight
