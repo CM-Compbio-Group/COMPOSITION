@@ -79,3 +79,4 @@ All notable changes to this project will be documented in this file.
 - Added clf_class_weights in train and train_batch
 - Added train_vae
 - Added coupling_weight
+- Set the default of wtanh as 0
