@@ -83,6 +83,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
     )
     return data, dataloader
 
+
 def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, minibatch=False, temperature=0.1, early_stopping=False, alpha=1, wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_entropy=1.2, tanh_thr=0.005, grad_clip=100, l1_ratio=0, coupling_weight=0.05, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs=3000):
     pyg.seed_everything(seed)
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
@@ -97,53 +98,15 @@ def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=16, n_cel
     spatial_coords = adata.obs[['x', 'y']]
     coords = spatial_coords[['x', 'y']].values
     
-    
-    p = 4
-    # partition the range of x and y axes
-    EPS = 1e-8
-    px = np.ones(p) * 1.0 / p
-    px[-1] -= EPS
-    xboundary = np.percentile(coords[:, 0], 100 * np.cumsum(px))
-    xboundary[-1] = np.max(coords[:, 0]) + 1
-    xdigit = np.digitize(coords[:, 0], xboundary, right=True)
-    ydigit = np.zeros(coords.shape[0], dtype=int)
-    for x in range(p):
-        idx_xbin = np.where(xdigit == x)[0]
-        py = np.ones(p) * 1.0 / p
-        py[-1] -= EPS
-        yboundary = np.percentile(coords[idx_xbin, 1], 100 * np.cumsum(py))
-        yboundary[-1] = np.max(coords[:, 1]) + 1
-        ydigit[idx_xbin] = np.digitize(coords[idx_xbin, 1], yboundary, right=True)
-    block_id = xdigit * p + ydigit
-    background = 1.0 * np.bincount(block_id) / len(block_id)
-    background
-    vae_z_np = vae_z.detach().cpu().numpy()
-    vae_argmax = np.argmax(vae_z_np, axis=1)
-    unique_info_cell_type = []
-    for i in range(n_celltypes):
-        joint_prob = pd.concat([
-            pd.Series(block_id[vae_argmax == i]).value_counts(),
-            pd.Series(block_id[vae_argmax != i]).value_counts()
-        ], axis=1)
-    
-        joint_prob.fillna(0, inplace=True)
-        joint_prob = joint_prob.values / joint_prob.values.sum()    
-        cond_entropy = scipy.stats.entropy(joint_prob.flatten()) - scipy.stats.entropy(joint_prob.sum(axis=1))
-        unique_info_cell_type.append(cond_entropy / scipy.stats.entropy(joint_prob.sum(axis=0)))    
-    weights = np.where( (np.array(unique_info_cell_type) > 0.95) | (np.mean(vae_z_np, axis=0) <= 0.01), 0.1, 1.0)
-    clf_class_weights = torch.from_numpy(weights.reshape(1,-1)).to(torch.float32)
-    np.where(weights > 0.5)[0]
-
-    
     pyg.seed_everything(seed)
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
     #model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes) # muted to avoid re-ordering cell types
     model_ff = FFPredict(num_topics, n_celltypes)
     if not minibatch:
-        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, clf_class_weights=clf_class_weights / clf_class_weights.mean(), temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
+        [model, model_ct, model_ff], device, loss_values = train(data, coords, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
 
     else:
-        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=clf_class_weights / clf_class_weights.mean(), temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
+        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, coords, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
 
     plt.figure()
     plt.plot(loss_values)
@@ -156,7 +119,8 @@ def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=16, n_cel
     plt.show()
 
     return model, model_ct, model_ff
-    
+
+
 def step3_postprocess(data, model, model_ct, model_ff, temperature=0.3, n_clusters=8):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
@@ -190,7 +154,7 @@ def step3_postprocess(data, model, model_ct, model_ff, temperature=0.3, n_cluste
     pred_domains = KMeans(n_clusters=n_clusters, random_state=0).fit_predict(p.detach().cpu())
                                   
     return p, cell_types_niche, cell_types_vae, niche_composition, pred_domains, recon_celltype, logits
-    
+
 
 def ensure_xy_from_obs(adata, inplace=True, verbose=True):
     """
@@ -250,6 +214,7 @@ def ensure_xy_from_obs(adata, inplace=True, verbose=True):
 
     return adata
 
+
 def load_data_deprecated(X, adjacency):
     """
     Converts the node features and adjacency matrix into a PyTorch Geometric `Data` object.
@@ -296,6 +261,44 @@ def load_data(X, adjacency):
     x = torch.tensor(X.values, dtype=torch.float)
 
     return Data(x=x, edge_index=edge_index)
+
+
+def get_clf_class_weights(coords, n_celltypes, vae_z, p=4):
+    # partition the range of x and y axes
+    EPS = 1e-8
+    px = np.ones(p) * 1.0 / p
+    px[-1] -= EPS
+    xboundary = np.percentile(coords[:, 0], 100 * np.cumsum(px))
+    xboundary[-1] = np.max(coords[:, 0]) + 1
+    xdigit = np.digitize(coords[:, 0], xboundary, right=True)
+    ydigit = np.zeros(coords.shape[0], dtype=int)
+    for x in range(p):
+        idx_xbin = np.where(xdigit == x)[0]
+        py = np.ones(p) * 1.0 / p
+        py[-1] -= EPS
+        yboundary = np.percentile(coords[idx_xbin, 1], 100 * np.cumsum(py))
+        yboundary[-1] = np.max(coords[:, 1]) + 1
+        ydigit[idx_xbin] = np.digitize(coords[idx_xbin, 1], yboundary, right=True)
+    block_id = xdigit * p + ydigit
+    background = 1.0 * np.bincount(block_id) / len(block_id)
+    vae_z_np = vae_z.detach().cpu().numpy()
+    vae_argmax = np.argmax(vae_z_np, axis=1)
+    unique_info_cell_type = []
+    for i in range(n_celltypes):
+        joint_prob = pd.concat([
+            pd.Series(block_id[vae_argmax == i]).value_counts(),
+            pd.Series(block_id[vae_argmax != i]).value_counts()
+        ], axis=1)
+    
+        joint_prob.fillna(0, inplace=True)
+        joint_prob = joint_prob.values / joint_prob.values.sum()    
+        cond_entropy = scipy.stats.entropy(joint_prob.flatten()) - scipy.stats.entropy(joint_prob.sum(axis=1))
+        unique_info_cell_type.append(cond_entropy / scipy.stats.entropy(joint_prob.sum(axis=0)))    
+    weights = np.where( (np.array(unique_info_cell_type) > 0.95) | (np.mean(vae_z_np, axis=0) <= 0.01), 0.1, 1.0)
+    clf_class_weights = torch.from_numpy(weights.reshape(1,-1)).to(torch.float32)
+
+    return clf_class_weights / clf_class_weights.mean()
+
 
 
 class VAE(nn.Module):
@@ -494,7 +497,7 @@ class FFPredict(nn.Module):
 
 
 # train data
-def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, epochs=600, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05):
+def train_batch(dataloader, coords, model, model_ct, model_ff, epochs=600, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05):
     """
     Simultaneous model training for VGAE(model), VAE(model_ct), and FFPredict(model_ff)
     dataloader : mini-batch loader, e.g. NeighborLoader
@@ -504,11 +507,6 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    if clf_class_weights is None:
-        clf_class_weights = torch.ones(model_ct.num_categories).to(device)
-    else:
-        clf_class_weights = clf_class_weights.to(device)
-    
     model = model.to(device)       # move model to GPU 
     model_ct = model_ct.to(device) # move model_ct to GPU
     model_ff = model_ff.to(device) # move model_ff to GPU 
@@ -591,6 +589,9 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
                 recon_celltype = model_ff(p)
                 eps = 1e-12
                 log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
+
+                clf_class_weights = get_clf_class_weights(coords, model_ct.num_categories, logits_re.squeeze(1))
+                clf_class_weights = clf_class_weights.to(device)
                 #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
                 loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
                     
@@ -603,6 +604,9 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
                 recon_celltype = model_ff(p)
                 eps = 1e-12
                 log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
+                
+                clf_class_weights = get_clf_class_weights(coords, model_ct.num_categories, logits_re.squeeze(1))
+                clf_class_weights = clf_class_weights.to(device)
                 #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
                 loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
             
@@ -666,7 +670,7 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
 
 
 # train data
-def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05):
+def train(data, coords, model, model_ct, model_ff, epochs=3000, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05):
     """
     Train the VGAE, VAE, and feed-forward predictor jointly.
 
@@ -686,11 +690,6 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     data = data.to(device)
 
-    if clf_class_weights is None:
-        clf_class_weights = torch.ones(model_ct.num_categories).to(device)
-    else:
-        clf_class_weights = clf_class_weights.to(device)
-    
     model = model.to(device)       # move model to GPU 
     model_ct = model_ct.to(device)    # move model_ct to GPU 
     model_ff = model_ff.to(device) # move model_ff to GPU
@@ -770,6 +769,9 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
             recon_celltype = model_ff(p)
             eps = 1e-12
             log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
+
+            clf_class_weights = get_clf_class_weights(coords, model_ct.num_categories, logits_re.squeeze(1))
+            clf_class_weights = clf_class_weights.to(device)
             #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
             loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
             
@@ -782,6 +784,9 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
             recon_celltype = model_ff(p)
             eps = 1e-12
             log_recon_celltype = (recon_celltype.clamp_min(eps)).log()
+
+            clf_class_weights = get_clf_class_weights(coords, model_ct.num_categories, logits_re.squeeze(1))
+            clf_class_weights = clf_class_weights.to(device)
             #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
             loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
         
