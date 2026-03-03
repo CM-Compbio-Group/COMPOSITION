@@ -83,3 +83,6 @@ All notable changes to this project will be documented in this file.
 
 #### Fixed - 2026-03-03
 - Deleted the re-initializing of model_ct
+
+#### Added - 2026-03-04
+- Added get_clf_class_weights
