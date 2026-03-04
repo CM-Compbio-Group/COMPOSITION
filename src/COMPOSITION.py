@@ -80,7 +80,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
         num_neighbors=[10,5],                     # Node sampling for each GNN layer
         batch_size=2048,                          # Number of center nodes for each batch
         shuffle=True
-    )
+    ) 
     return data, dataloader
 
 
