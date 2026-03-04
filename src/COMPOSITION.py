@@ -84,13 +84,13 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
     return data, dataloader
 
 
-def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=16, n_celltypes=20, minibatch=False, temperature=0.1, early_stopping=False, alpha=1, wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_entropy=1.2, tanh_thr=0.005, grad_clip=100, l1_ratio=0, coupling_weight=0.05, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs=3000):
+def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_celltypes=20, minibatch=False, temperature=0.1, early_stopping=False, alpha=1, wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, tanh_thr=0.005, grad_clip=100, l1_ratio=0, coupling_weight=0.05, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs=3000):
     pyg.seed_everything(seed)
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
     model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes)
     model_ff = FFPredict(num_topics, n_celltypes)
 
-    [model, model_ct, model_ff], device, loss_values = train_vae(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs)
+    [model, model_ct, model_ff], device, loss_values = train_vae(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs)
 
     recon_x, logits, logits_re = model_ct(data.x.to(device), temperature=temperature)
     vae_z = logits_re
@@ -105,10 +105,10 @@ def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=16, n_cel
     #model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes) # muted to avoid re-ordering cell types
     model_ff = FFPredict(num_topics, n_celltypes)
     if not minibatch:
-        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
+        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
 
     else:
-        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
+        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
 
     plt.figure()
     plt.plot(loss_values)
