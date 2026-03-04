@@ -105,10 +105,10 @@ def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_cel
     #model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes) # muted to avoid re-ordering cell types
     model_ff = FFPredict(num_topics, n_celltypes)
     if not minibatch:
-        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
+        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, clf_class_weights=clf_class_weights, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
 
     else:
-        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
+        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=clf_class_weights, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
 
     plt.figure()
     plt.plot(loss_values)
