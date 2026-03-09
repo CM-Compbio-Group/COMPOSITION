@@ -918,3 +918,46 @@ def train_vae(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=
         
     print(f"loss: {loss}")
     return [model, model_ct, model_ff], device, loss_values
+
+
+def predicted_cell_type_pairs(p, model_ff, num_topics, threshold=None, indices=None):
+    import numpy as np
+    import itertools
+
+    def get_significant_topics(p, num_topics):
+        p_numpy = p.detach().cpu().numpy()
+        dynamic_threshold = 1.0 / num_topics 
+        significant_topics = set()
+        for spot_weights in p_numpy:
+            indices = np.where(spot_weights > dynamic_threshold)[0]
+            significant_topics.update(indices)
+        return significant_topics
+    
+    def get_predicted_pairs_top3(p, weights, num_topics, threshold=None):
+        H, T = weights.shape # H: hidden units, T: topics
+        
+        # choose which topic columns to use
+        target_topics = get_significant_topics(p, num_topics) if indices is None else indices
+    
+        all_predicted_pairs = set()
+        for col in target_topics:
+            col_w = weights[:, col]
+            if threshold is None:
+                valid_rows = np.arange(H)
+            else:
+                valid_rows = np.where(col_w >= threshold)[0]
+            n = valid_rows.size
+            if n < 2:
+                continue
+            elif n > 3:
+                top_rows = np.argsort(weights[:, col])[::-1][:3]
+                for pair in itertools.combinations(top_rows, 2):
+                    all_predicted_pairs.add(tuple(sorted(pair)))
+            else:                
+                top_rows = np.argsort(weights[:, col])[::-1][:2]
+                for pair in itertools.combinations(top_rows, 2):
+                    all_predicted_pairs.add(tuple(sorted(pair)))
+        return all_predicted_pairs
+
+    weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    return get_predicted_pairs_top3(p, weights, num_topics)
