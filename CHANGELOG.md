@@ -86,3 +86,6 @@ All notable changes to this project will be documented in this file.
 
 #### Added - 2026-03-04
 - Added get_clf_class_weights
+
+#### Added - 2026-03-09
+- Added predicted_cell_type_pairs
