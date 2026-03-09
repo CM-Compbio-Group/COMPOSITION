@@ -942,21 +942,21 @@ def predicted_cell_type_pairs(p, model_ff, num_topics, threshold=None, indices=N
         all_predicted_pairs = set()
         for col in target_topics:
             col_w = weights[:, col]
+            
             if threshold is None:
                 valid_rows = np.arange(H)
             else:
                 valid_rows = np.where(col_w >= threshold)[0]
-            n = valid_rows.size
-            if n < 2:
+
+            if len(valid_rows) < 2:
                 continue
             
             valid_weights = col_w[valid_rows]
-            if n > 3:
-                top_idx_within_valid = np.argsort(valid_weights)[::-1][:3]
-                top_rows = valid_rows[top_idx_within_valid]
+            if len(valid_rows) > 3:
+                top_idx = np.argsort(valid_weights)[::-1][:3]
             else:                
-                top_idx_within_valid = np.argsort(valid_weights)[::-1]
-                top_rows = valid_rows[top_idx_within_valid]
+                top_idx = np.argsort(valid_weights)[::-1]
+            top_rows = valid_rows[top_idx]
             
             for pair in itertools.combinations(top_rows, 2):
                 all_predicted_pairs.add(tuple(sorted(pair)))
@@ -964,4 +964,4 @@ def predicted_cell_type_pairs(p, model_ff, num_topics, threshold=None, indices=N
         return all_predicted_pairs
 
     weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
-    return get_predicted_pairs_top3(p, weights, num_topics)
+    return get_predicted_pairs_top3(p, weights, num_topics, threshold=threshold)
