@@ -949,14 +949,18 @@ def predicted_cell_type_pairs(p, model_ff, num_topics, threshold=None, indices=N
             n = valid_rows.size
             if n < 2:
                 continue
-            elif n > 3:
-                top_rows = np.argsort(weights[:, col])[::-1][:3]
-                for pair in itertools.combinations(top_rows, 2):
-                    all_predicted_pairs.add(tuple(sorted(pair)))
+            
+            valid_weights = col_w[valid_rows]
+            if n > 3:
+                top_idx_within_valid = np.argsort(valid_weights)[::-1][:3]
+                top_rows = valid_rows[top_idx_within_valid]
             else:                
-                top_rows = np.argsort(weights[:, col])[::-1][:2]
-                for pair in itertools.combinations(top_rows, 2):
-                    all_predicted_pairs.add(tuple(sorted(pair)))
+                top_idx_within_valid = np.argsort(valid_weights)[::-1]
+                top_rows = valid_rows[top_idx_within_valid]
+            
+            for pair in itertools.combinations(top_rows, 2):
+                all_predicted_pairs.add(tuple(sorted(pair)))
+                
         return all_predicted_pairs
 
     weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
