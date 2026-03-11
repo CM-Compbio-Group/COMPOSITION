@@ -550,8 +550,10 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
 
     if clf_class_weights is None:
         clf_class_weights = torch.ones(model_ct.num_categories).to(device)
+        clf_class_weights0 = torch.ones(model_ct.num_categories).to(device)
     else:
         clf_class_weights = clf_class_weights.to(device)
+        clf_class_weights0 = torch.ones(model_ct.num_categories).to(device)
     
     model = model.to(device)       # move model to GPU 
     model_ct = model_ct.to(device) # move model_ct to GPU
@@ -638,6 +640,7 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
 
                 #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
                 loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
+                loss_clf0 = -(tensor_target * log_recon_celltype * clf_class_weights0).sum() * wloss_clf
                     
             else:
                 loss_recon = 0
@@ -651,6 +654,7 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
                 
                 #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
                 loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
+                loss_clf0 = -(tensor_target * log_recon_celltype * clf_class_weights0).sum() * wloss_clf
             
             loss = loss_spatial + loss_KLD + loss_entropy + loss_recon + loss_clf + l1_ratio * z.abs().sum(axis=0).sum() -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum()
                                                              # l1_ratio*model_ff(p).abs().sum(axis=0).sum()
@@ -708,6 +712,7 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
     print(f"loss-loss_entropy: {loss-loss_entropy}")
     print(f"loss_recon: {loss_recon}")
     print(f"loss_clf: {loss_clf}")
+    print(f"loss0: {loss - loss_clf + loss_clf0}")
     return [model, model_ct, model_ff], device, loss_values
 
 
@@ -734,8 +739,10 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
 
     if clf_class_weights is None:
         clf_class_weights = torch.ones(model_ct.num_categories).to(device)
+        clf_class_weights0 = torch.ones(model_ct.num_categories).to(device)
     else:
         clf_class_weights = clf_class_weights.to(device)
+        clf_class_weights0 = torch.ones(model_ct.num_categories).to(device)
 
     model = model.to(device)       # move model to GPU 
     model_ct = model_ct.to(device)    # move model_ct to GPU 
@@ -819,6 +826,7 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
 
             #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
             loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
+            loss_clf0 = -(tensor_target * log_recon_celltype * clf_class_weights0).sum() * wloss_clf
             
         else:
             loss_recon = 0
@@ -832,6 +840,7 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
 
             #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
             loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
+            loss_clf0 = -(tensor_target * log_recon_celltype * clf_class_weights0).sum() * wloss_clf
         
         loss = loss_spatial + loss_KLD + loss_entropy + loss_recon + loss_clf + l1_ratio *  z.abs().sum(axis=0).sum()  -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum()
                                         #p_cell = F.softmax(model_ff.fc1.weight, dim=0)
@@ -889,6 +898,7 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
     print(f"loss-loss_entropy: {loss-loss_entropy}")
     print(f"loss_recon: {loss_recon}")
     print(f"loss_clf: {loss_clf}")
+    print(f"loss0: {loss - loss_clf + loss_clf0}")
     return [model, model_ct, model_ff], device, loss_values
 
 
