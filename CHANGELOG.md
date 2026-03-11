@@ -89,3 +89,6 @@ All notable changes to this project will be documented in this file.
 
 #### Added - 2026-03-09
 - Added predicted_cell_type_pairs
+
+#### Fixed - 2026-03-11
+- Fixed step1_preprocess
