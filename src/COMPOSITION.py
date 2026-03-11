@@ -67,9 +67,21 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
             adata.X = adata.layers['counts'].copy()
         sc.pp.normalize_total(adata, target_sum=1e4)
         sc.pp.log1p(adata)
-        sc.pp.scale(adata, zero_center=True, max_value=10)
+        
+        # HVG selection
+        sc.pp.highly_variable_genes(adata, n_top_genes=2000, flavor='seurat_v3')
+        adata = adata[:, adata.var['highly_variable']].copy()
+
+        # scaling
+        sc.pp.scale(adata, zero_center=True)
+
+        # PCA
         sc.tl.pca(adata, n_comps=n_comps)
         X = adata.obsm['X_pca']
+
+        # optional Harmony if multiple slices
+        # sce.pp.harmony_integrate(adata, key='sample_names')
+        # X = adata.obsm['X_pca_harmony']
     
     X = pd.DataFrame(X, index=adata.obs_names, columns=[f"PC{i+1}" for i in range(X.shape[1])])
     
