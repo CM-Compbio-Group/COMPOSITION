@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", "is_categorical_dtype")
 warnings.filterwarnings("ignore", "use_inf_as_na")
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 
-def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
+def step1_preprocess(adata_orig, X_pca=None, n_comps=20, BASS_preprocess=False):
     """
     Args:
         adata_orig: Raw AnnData. If no adata_orig.layers['counts'], adata_orig.X should be raw counts
@@ -63,25 +63,48 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20):
     elif 'X_pca' in adata.obsm:
         X = adata.obsm['X_pca']
     else:
-        if 'counts' in adata.layers:
-            adata.X = adata.layers['counts'].copy()
-        sc.pp.normalize_total(adata, target_sum=1e4)
-        sc.pp.log1p(adata)
+        if not BASS_preprocess:
+            if 'counts' in adata.layers:
+                adata.X = adata.layers['counts'].copy()
+            sc.pp.normalize_total(adata, target_sum=1e4)
+            sc.pp.log1p(adata)
         
-        # HVG selection
-        sc.pp.highly_variable_genes(adata, n_top_genes=2000, flavor='seurat_v3')
-        adata = adata[:, adata.var['highly_variable']].copy()
+            # HVG selection
+            sc.pp.highly_variable_genes(adata, n_top_genes=2000, flavor='seurat_v3')
+            adata = adata[:, adata.var['highly_variable']].copy()
 
-        # scaling
-        sc.pp.scale(adata, zero_center=True)
+            # scaling
+            sc.pp.scale(adata, zero_center=True)
 
-        # PCA
-        sc.tl.pca(adata, n_comps=n_comps)
-        X = adata.obsm['X_pca']
+            # PCA
+            sc.tl.pca(adata, n_comps=n_comps)
+            X = adata.obsm['X_pca']
 
-        # optional Harmony if multiple slices
-        # sce.pp.harmony_integrate(adata, key='sample_names')
-        # X = adata.obsm['X_pca_harmony']
+            # optional Harmony if multiple slices
+            # sce.pp.harmony_integrate(adata, key='sample_names')
+            # X = adata.obsm['X_pca_harmony']
+        else:
+            import numpy as np
+            import pandas as pd
+            from sklearn.decomposition import PCA
+            from scipy import sparse
+            
+            if 'counts' in adata.layers:
+                raw = adata.layers['counts'].copy()
+            else:
+                raw = adata.X.copy()
+
+            if sparse.issparse(raw):
+                raw = raw.toarray()
+
+            raw = raw.T
+            
+            sf = raw.sum(axis=0)
+            sf = sf / sf.mean()
+            x = np.log2(raw / sf + 1.0) 
+            x = (x - x.mean(axis=1, keepdims=True)) / x.std(axis=1, ddof=1, keepdims=True)
+            x = x.T
+            X = PCA(n_components=n_comps, svd_solver="full").fit_transform(x)
     
     X = pd.DataFrame(X, index=adata.obs_names, columns=[f"PC{i+1}" for i in range(X.shape[1])])
     
