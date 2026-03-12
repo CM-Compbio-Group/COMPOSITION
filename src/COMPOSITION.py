@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", "is_categorical_dtype")
 warnings.filterwarnings("ignore", "use_inf_as_na")
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 
-def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=False):
+def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=True):
     """
     Args:
         adata_orig: Raw AnnData. If no adata_orig.layers['counts'], adata_orig.X should be raw counts
