@@ -28,6 +28,8 @@ from torch_geometric.nn import VGAE, GCNConv, InnerProductDecoder, Sequential, S
 from torch_geometric.loader import NeighborLoader
 import torch.nn.functional as F
 from tqdm import trange
+from sklearn.decomposition import PCA
+from scipy import sparse
 import warnings
 warnings.filterwarnings("ignore", "is_categorical_dtype")
 warnings.filterwarnings("ignore", "use_inf_as_na")
@@ -83,12 +85,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=True):
             # optional Harmony if multiple slices
             # sce.pp.harmony_integrate(adata, key='sample_names')
             # X = adata.obsm['X_pca_harmony']
-        else:
-            import numpy as np
-            import pandas as pd
-            from sklearn.decomposition import PCA
-            from scipy import sparse
-            
+        else:            
             if 'counts' in adata.layers:
                 raw = adata.layers['counts'].copy()
             else:
