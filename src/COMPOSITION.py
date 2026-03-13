@@ -123,7 +123,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=True):
     return data, dataloader
 
 
-def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_celltypes=20, minibatch=False, temperature=0.1, early_stopping=False, alpha=1, wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, tanh_thr=0.005, grad_clip=100, l1_ratio=0, coupling_weight=0.05, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs=3000):
+def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_celltypes=20, minibatch=False, temperature=0.1, early_stopping=False, alpha=1, wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, tanh_thr=0.005, grad_clip=100, l1_ratio=0, coupling_weight=0.05, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs=3000, extra_epochs=100):
     pyg.seed_everything(seed)
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
     model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes)
@@ -144,10 +144,10 @@ def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_cel
     #model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes) # muted to avoid re-ordering cell types
     model_ff = FFPredict(num_topics, n_celltypes)
     if not minibatch:
-        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, clf_class_weights=clf_class_weights, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
+        [model, model_ct, model_ff], device, loss_values = train(data, model, model_ct, model_ff, clf_class_weights=clf_class_weights, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs, extra_epochs=extra_epochs)
 
     else:
-        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=clf_class_weights, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs)
+        [model, model_ct, model_ff], device, loss_values = train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=clf_class_weights, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, tanh_thr=tanh_thr, grad_clip=grad_clip, l1_ratio=l1_ratio, coupling_weight=coupling_weight, optim=optim, lr=lr, weight_decay=weight_decay, momentum=momentum, epochs=epochs, extra_epochs=extra_epochs)
 
     plt.figure()
     plt.plot(loss_values)
@@ -538,7 +538,7 @@ class FFPredict(nn.Module):
 
 
 # train data
-def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, epochs=600, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05):
+def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05, epochs=600, extra_epochs=20):
     """
     Simultaneous model training for VGAE(model), VAE(model_ct), and FFPredict(model_ff)
     dataloader : mini-batch loader, e.g. NeighborLoader
@@ -593,7 +593,7 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
     log_sigma2 = 0
     log_sigma2_fixed = 0
     
-    for epoch in range(epochs):
+    for epoch in range(epochs+extra_epochs):
         epoch_loss = 0
         for batch in dataloader:
             batch = batch.to(device)    # move data to GPU
@@ -621,6 +621,10 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, e
                 loss_entropy = 1.0 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
                 t_anneal = 1
                 log_sigma2 = log_sigma2_fixed
+            elif epoch > epochs:
+                loss_entropy = 0.8 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
+                t_anneal = temperature
+                #coupling_weight = 0
             else:
                 loss_entropy = 1.5 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
                 t_anneal = max(temperature, 1.0 - (1.0-temperature)/500 * (epoch - int(epochs/2)) )
@@ -782,7 +786,7 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
     log_sigma2 = 0
     log_sigma2_fixed = 0
         
-    for epoch in range(epochs):
+    for epoch in range(epochs+extra_epochs):
         optimizer.zero_grad()       # clear previous gradients
         
         # GVAE
@@ -807,6 +811,10 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, 
             loss_entropy = 1.0 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
             t_anneal = 1
             log_sigma2 = log_sigma2_fixed
+        elif epoch > epochs:
+            loss_entropy = 0.8 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
+            t_anneal = temperature
+            #coupling_weight = 0
         else:
             loss_entropy = 1.5 * wloss_entropy * -(p * torch.log(p + EPS)).sum()
             t_anneal = max(temperature, 1.0 - (1.0-temperature)/500 * (epoch - int(epochs/2)) )
