@@ -159,7 +159,7 @@ def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_cel
     return model, model_ct, model_ff
 
 
-def step3_postprocess(data, model, model_ct, model_ff, temperature=0.3, n_clusters=8):
+def step3_postprocess(data, model, model_ct, model_ff, temperature=0.1, n_clusters=8):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     model_ff = model_ff.to(device)
