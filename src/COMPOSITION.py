@@ -123,7 +123,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=True):
     return data, dataloader
 
 
-def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_celltypes=20, minibatch=False, temperature=0.1, early_stopping=False, alpha=1, wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, tanh_thr=0.005, grad_clip=100, l1_ratio=0, coupling_weight=0.05, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs=3000, extra_epochs=100):
+def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_celltypes=20, minibatch=False, temperature=0.1, early_stopping=False, alpha=1, wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, tanh_thr=0.005, grad_clip=100, l1_ratio=0, coupling_weight=0.05, optim='adam', lr=9e-3, weight_decay=0, momentum=0, epochs=3000, extra_epochs=600):
     pyg.seed_everything(seed)
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
     model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes)
@@ -538,7 +538,7 @@ class FFPredict(nn.Module):
 
 
 # train data
-def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05, epochs=600, extra_epochs=20):
+def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05, epochs=600, extra_epochs=120):
     """
     Simultaneous model training for VGAE(model), VAE(model_ct), and FFPredict(model_ff)
     dataloader : mini-batch loader, e.g. NeighborLoader
@@ -721,7 +721,7 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, t
 
 
 # train data
-def train(data, model, model_ct, model_ff, clf_class_weights=None, epochs=3000, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05):
+def train(data, model, model_ct, model_ff, clf_class_weights=None, temperature=0.1, optim='adam', lr=5e-3, weight_decay=0, momentum=0, alpha=None, betas=(0.9, 0.999), wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, wtanh = None, tanh_thr = 0.005, l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None, adjacency=None, coupling_weight=0.05, epochs=3000, extra_epochs=600):
     """
     Train the VGAE, VAE, and feed-forward predictor jointly.
 
