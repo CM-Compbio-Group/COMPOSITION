@@ -92,3 +92,6 @@ All notable changes to this project will be documented in this file.
 
 #### Fixed - 2026-03-11
 - Fixed step1_preprocess
+
+#### Added - 2026-03-13
+- Added extra_epochs
