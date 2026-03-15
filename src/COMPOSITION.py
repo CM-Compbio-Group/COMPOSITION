@@ -1015,3 +1015,171 @@ def predicted_cell_type_pairs(p, model_ff, num_topics, threshold=None, indices=N
 
     weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
     return get_predicted_pairs_top3(p, weights, num_topics, threshold=threshold)
+
+
+def step1_prev_simulation():
+    # ============================================================
+    # 0) Library
+    # ============================================================
+    import numpy as np
+    import pandas as pd
+    import scipy.sparse as sp
+    from sklearn.linear_model import LogisticRegression
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    
+    # ============================================================
+    # 1) Global parameters
+    #    ── (If you want to change it, you can change it here) ───────────────────────────
+    # ============================================================
+    # --- composition ----------------------------------------------------
+    K1 = 9        # domain-marker cell-types
+    K2 = 9        # paired  ✕2  → 18
+    K3 = 9        # rare
+    C  = K1 + 2*K2 + K3        # 36 cell-types total
+    
+    # --- spot / space ------------------------------------------------
+    spots_per_domain  = 5_000                   # 50×100 grid
+    H_dom, W_dom      = 50, 100                 # domain height, width
+    domains_per_side  = 3                       # 3×3 = 9 domains
+    n_domains         = K1                      # (=9)
+    
+    # --- statistical distribution --------------------------------------------------
+    mu_dom,  sd_dom  = 0.50, 0.01
+    mu_pair, sd_pair = 0.20, 0.04
+    EPS = 1e-6
+    rng = np.random.default_rng(123)
+    
+    # --- z-embedding / expression -------------------------------------------
+    DIM_Z   = K1 + K2 + 1       # 19
+    d_expr  = 20                # top-PC dimension
+    # ============================================================
+    
+    
+    # ------------------------------------------------------------
+    # 2) spatial coordinate & domain index
+    # ------------------------------------------------------------
+    coords_list, domain_list = [], []
+    for dy in range(domains_per_side):
+        for dx in range(domains_per_side):
+            dom_idx = dy * domains_per_side + dx
+            ys, xs = np.mgrid[0:H_dom, 0:W_dom]                      # 50×100
+            # Putting (row, col) as (x, y) is intuitive when visualizing
+            coords_dom = np.stack([xs.ravel() + dx*W_dom,
+                                   ys.ravel() + dy*H_dom], axis=1)
+            coords_list.append(coords_dom)
+            domain_list.append(np.full(spots_per_domain, dom_idx, int))
+    
+    coords      = np.vstack(coords_list)         # (N, 2)
+    domain_ids  = np.concatenate(domain_list)    # (N,)
+    N           = coords.shape[0]                # Total spot num (= 45 000)
+    
+    # ------------------------------------------------------------
+    # 3) Celltype label & z-embedding simulation
+    # ------------------------------------------------------------
+    def tnorm(m, s, lo=0., hi=1.):
+        """truncated Normal one-liner"""
+        while True:
+            x = rng.normal(m, s)
+            if lo < x < hi:
+                return x
+    
+    # helper for pair index
+    def idx_pairA(d): return K1 + 2*d
+    def idx_pairB(d): return K1 + 2*d + 1
+    rare_idx = np.arange(K1 + 2*K2, C)
+    
+    cell_types_obs = np.empty(N,  dtype=int)
+    z_raw_matrix   = np.zeros((N, DIM_Z))
+    
+    for d in range(n_domains):                           # 0..8
+        idx = np.where(domain_ids == d)[0]
+        for i in idx:
+            # ---------- (1) Probability vector p --------------------------------
+            while True:
+                p_dom  = tnorm(mu_dom,  sd_dom)
+                #p_sum  = tnorm(mu_pair, sd_pair)         # The total of the two paired
+                p_sum = tnorm(
+                    mu_pair + (1) * sd_pair / sd_dom * (p_dom - mu_dom),
+                    sd_pair * np.sqrt(1 - (1)**2)
+                )
+                if p_dom + p_sum < 0.95:
+                    break
+            pA, pB  = p_sum / 2, p_sum / 2
+            remain  = 1.0 - p_dom - p_sum
+            p       = np.full(C, EPS)                    # Initialize to small value
+            p[d]                   = p_dom
+            p[idx_pairA(d)]        = pA
+            p[idx_pairB(d)]        = pB
+            # Same distribution to other rare types
+            p[rare_idx] += (remain - EPS * (C - 3)) / len(rare_idx)
+    
+            # ---------- (2) Celltype label --------------------------------
+            cell_types_obs[i] = rng.choice(C, p=p)
+    
+            # ---------- (3) z_raw (before normalization) ---------------------------
+            z = np.zeros(DIM_Z)
+            # ① Domain marker 9
+            z[:K1] = np.log(p[:K1])
+            # ② Pair average log 9
+            for j in range(K2):
+                z[K1 + j] = np.log((p[idx_pairA(j)] + p[idx_pairB(j)]) / 2)
+            # ③ Rare sum log
+            z[-1] = np.log(p[rare_idx].sum())
+            z_raw_matrix[i] = z
+    
+    # Scaling(option) → Put it on γ= 1 here
+    z_embeddings = z_raw_matrix.copy()          # (N, 19)
+    
+    # ------------------------------------------------------------
+    # 4) 4-neighbor adjacency matrix (sparse CSR)
+    # ------------------------------------------------------------
+    H_full = domains_per_side * H_dom           # 150
+    W_full = domains_per_side * W_dom           # 300
+    index_grid = np.arange(N).reshape(H_full, W_full)
+    
+    edge_i, edge_j = [], []
+    for y in range(H_full):
+        for x in range(W_full):
+            v = index_grid[y, x]
+            if x + 1 < W_full:
+                u = index_grid[y, x+1]
+                edge_i.extend([v, u])
+                edge_j.extend([u, v])
+            if y + 1 < H_full:
+                u = index_grid[y+1, x]
+                edge_i.extend([v, u])
+                edge_j.extend([u, v])
+    
+    adjacency = sp.coo_matrix(
+        (np.ones(len(edge_i), dtype=np.float32), (edge_i, edge_j)),
+        shape=(N, N)
+    ).tocsr()
+    
+    # ------------------------------------------------------------
+    # 5) Expression (or PCA) matrix X_simulated
+    #     - Fixed 20-D vector per cell type, noise X
+    # ------------------------------------------------------------
+    M_expr = rng.normal(0, 1, size=(C, d_expr))     # (36,20)
+    X_simulated = M_expr[cell_types_obs]            # (N,20)
+    
+    # ------------------------------------------------------------
+    # 6) (Option) simple sanity check / visualization
+    # ------------------------------------------------------------
+    print(f"N spots              : {N}")
+    print("coords shape         :", coords.shape)
+    print("z_embeddings shape   :", z_embeddings.shape)
+    print("X_simulated shape    :", X_simulated.shape)
+    print("adjacency nnz        :", adjacency.nnz)
+
+    data = load_data(X_simulated, adjacency)
+
+    dataloader = NeighborLoader( 
+        data,
+        input_nodes=torch.arange(data.num_nodes), # [0, 1, 2, ..., n_obs-1]
+        num_neighbors=[10,5],                     # Node sampling for each GNN layer
+        batch_size=2048,                          # Number of center nodes for each batch
+        shuffle=True
+    )
+    
+    return data, dataloader
