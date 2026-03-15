@@ -1172,7 +1172,17 @@ def step1_prev_simulation():
     print("X_simulated shape    :", X_simulated.shape)
     print("adjacency nnz        :", adjacency.nnz)
 
-    data = load_data(X_simulated, adjacency)
+    def load_data_prev_simulation(X, adjacency):
+        # Ensure adjacency is in COO format
+        adjacency_coo = adjacency.tocoo()
+        edge_index = np.vstack((adjacency_coo.row, adjacency_coo.col))
+        edge_index = torch.tensor(edge_index, dtype=torch.long)
+    
+        # Convert the DataFrame to a NumPy array and then to a PyTorch tensor
+        x = torch.tensor(X, dtype=torch.float)
+        return Data(x=x, edge_index=edge_index)
+        
+    data = load_data_prev_simulation(X_simulated, adjacency)
 
     dataloader = NeighborLoader( 
         data,
@@ -1182,4 +1192,4 @@ def step1_prev_simulation():
         shuffle=True
     )
     
-    return data, dataloader
+    return data, dataloader, coords, domain_ids, cell_types_obs
