@@ -97,4 +97,4 @@ All notable changes to this project will be documented in this file.
 - Added extra_epochs
 
 #### Added - 2026-03-15
-- Integrate a separate simulation dataset into step1_prev_simulation
+- Integrated a separate simulation dataset into step1_prev_simulation
