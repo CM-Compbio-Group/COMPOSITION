@@ -55,7 +55,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=True):
     
     if hasattr(adata, 'obsp') and 'spatial_connectivities' in adata.obsp:
         adjacency = adata.obsp['spatial_connectivities']
-    else
+    else:
         sq.gr.spatial_neighbors(adata, coord_type='generic', delaunay=True, spatial_key='spatial')
         cc.gr.remove_long_links(adata)
         adjacency = adata.obsp['spatial_connectivities']
@@ -126,7 +126,7 @@ def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_cel
     model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes)
     model_ff = FFPredict(num_topics, n_celltypes)
 
-    [model, model_ct, model_ff], device, loss_values = train_vae(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, epochs=epochs)
+    [model, model_ct, model_ff], device, loss_values = train_vae(data, model, model_ct, model_ff, temperature=temperature, early_stopping=early_stopping, alpha=alpha, wloss_spatial=wloss_spatial, wloss_KLD=wloss_KLD, wloss_recon=wloss_recon, wloss_clf=wloss_clf, wloss_entropy=wloss_entropy, grad_clip=grad_clip, l1_ratio=l1_ratio, lr=lr, weight_decay=weight_decay, epochs=epochs)
 
     recon_x, logits, logits_re = model_ct(data.x.to(device), temperature=temperature)
     vae_z = logits_re
@@ -564,7 +564,7 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, t
         if optim=='sgd':
             optimizer = torch.optim.SGD( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
         elif optim=='adam':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adamw':
             optimizer = torch.optim.AdamW( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
@@ -573,7 +573,7 @@ def train_batch(dataloader, model, model_ct, model_ff, clf_class_weights=None, t
         if optim=='sgd':
             optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay)
         elif optim=='adam':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adamw':
             optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
@@ -757,7 +757,7 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, temperature=0
         if optim=='sgd':
             optimizer = torch.optim.SGD( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
         elif optim=='adam':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adamw':
             optimizer = torch.optim.AdamW( chain(model.parameters(), model_ct.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
@@ -766,7 +766,7 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, temperature=0
         if optim=='sgd':
             optimizer = torch.optim.SGD( chain(model.parameters(), model_ff.parameters()), lr=lr, momentum=momentum, weight_decay=weight_decay )
         elif optim=='adam':
-            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas)
+            optimizer = torch.optim.Adam( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adamw':
             optimizer = torch.optim.AdamW( chain(model.parameters(), model_ff.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
         elif optim=='adagrad':
@@ -846,7 +846,7 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, temperature=0
             #loss_clf = -(tensor_target * log_recon_celltype).sum() * wloss_clf
             loss_clf = -(tensor_target * log_recon_celltype * clf_class_weights).sum() * wloss_clf
             loss_clf0 = -(tensor_target * log_recon_celltype * clf_class_weights0).sum() * wloss_clf
-        
+
         loss = loss_spatial + loss_KLD + loss_entropy + loss_recon + loss_clf + l1_ratio *  z.abs().sum(axis=0).sum()  -wtanh * torch.tanh(tanh_thr * p.abs().sum(dim=0)).sum()
                                         #p_cell = F.softmax(model_ff.fc1.weight, dim=0)
                                         #l1_ratio * -(p_cell * torch.log(p_cell + EPS)).sum()
@@ -907,7 +907,7 @@ def train(data, model, model_ct, model_ff, clf_class_weights=None, temperature=0
     return [model, model_ct, model_ff], device, loss_values
 
 
-def train_vae(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=5e-3, alpha=None, betas=(0.9, 0.999),
+def train_vae(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=5e-3, alpha=None, betas=(0.9, 0.999), weight_decay=0,
           wloss_spatial=0.8, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=2.0, wtanh = None, tanh_thr = 0.005,
           l1_ratio=0, grad_clip=200, early_stopping=True, spotwise_celltype_probability=None):
     
@@ -918,7 +918,7 @@ def train_vae(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=
     if alpha is not None:
         model.alpha=alpha
 
-    optimizer = torch.optim.Adam( chain(model_ct.parameters()), lr=lr, betas=betas)
+    optimizer = torch.optim.Adam( chain(model_ct.parameters()), lr=lr, betas=betas, weight_decay=weight_decay)
     model_ct.train()                # switch to training mode
     
     # loss fun
