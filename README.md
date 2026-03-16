@@ -42,6 +42,8 @@ pip install numpy==1.26.4
 
 * Please refer to `tutorial/COMPOSITION_mouse_hypothalamus.ipynb`
 
+* You may need `minibatch=True` for applying `COMPOSITION` to 2μm Visium HD data due to GPU memory issue.
+
 ## Fun Fact
 
 * The name `COMPOSITION` is inspired by Piet Mondrian’s “Composition with Red, Blue and Yellow”, and our simulated data visually resembles that painting.
