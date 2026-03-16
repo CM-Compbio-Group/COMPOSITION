@@ -8,7 +8,7 @@ We developed `COMPOSITION` to model hierarchical spatial structure across multip
 
 <br>
 
-_**Planned Publication**_
+_**Publication**_
 
 * _Park, J., Zhang, T., Ma, C. (2025) Scalable cell type and spatial domain modeling using spatially informed topic inference of cancer niches. AACR 2026_ 
 
