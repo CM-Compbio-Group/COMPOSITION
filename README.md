@@ -40,7 +40,7 @@ pip install numpy==1.26.4
 
 ## How to Use
 
-* Please refer to `tutorial/COMPOSITION_mouse_hypothalamus.ipynb`
+* Please refer to `tutorial/COMPOSITION_mouse_hypothalamus.ipynb`.
 
 * You may need `minibatch=True` for applying `COMPOSITION` to 2μm Visium HD data due to GPU memory issue.
 
