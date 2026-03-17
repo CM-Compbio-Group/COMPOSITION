@@ -1188,6 +1188,8 @@ def step1_prev_simulation():
         "DIM_Z": DIM_Z,
         "d_expr": d_expr
     }
+    adata.obs['x'] = coords[:, 0]
+    adata.obs['y'] = coords[:, 1]
     
     # ------------------------------------------------------------
     # 6) (Option) simple sanity check / visualization
