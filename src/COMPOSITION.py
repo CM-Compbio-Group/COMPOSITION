@@ -1235,7 +1235,7 @@ def step1_prev_simulation():
     return adata, data, dataloader, coords, domain_ids, cell_types_obs
 
 
-def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, viz_threshold=0.01):
+def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, num_topics=19, viz_threshold=0.01, manual_threshold_weight=1.0):
     # ============================================================
     # 0) Functions
     # ============================================================
@@ -1309,14 +1309,14 @@ def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs
 
     def get_significant_topics(p, num_topics):
         p_numpy = p.detach().cpu().numpy()
-        dynamic_threshold = 1.0 / num_topics 
+        dynamic_threshold = manual_threshold_weight=1.0 * 1.0 / num_topics 
         significant_topics = set()
         for spot_weights in p_numpy:
             indices = np.where(spot_weights > dynamic_threshold)[0]
             significant_topics.update(indices)
         return significant_topics
     
-    def get_predicted_pairs_top3(p, weights, num_topics, threshold=None):
+    def get_predicted_pairs_top3(p, weights, num_topics, threshold=None, indices=None):
         H, T = weights.shape # H: hidden units, T: topics
         
         # choose which topic columns to use
@@ -1387,6 +1387,8 @@ def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs
     # ============================================================
     # 2) Evaluation based on viz_threshold
     # ============================================================
+    print("@Evaluation based on viz_threshold")
+    
     # 1. Get cell type coenrichment pairs
     print(get_significant_topics(p, num_topics))
     all_predicted_pairs = predicted_cell_type_pairs(p, model_ff, indices=None, num_topics=19, threshold=viz_threshold)
@@ -1432,6 +1434,8 @@ def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs
     # ============================================================
     # 3) Evaluation irrelevant to viz_threshold
     # ============================================================
+    print("@Evaluation irrelevant to viz_threshold")
+    
     true_pairs = {
         (0, 9), (0,10), (9,10),
         (1,11), (1,12), (11,12),
