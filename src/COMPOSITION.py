@@ -1380,7 +1380,7 @@ def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs
     thresholds = viz_threshold #viz_threshold * max_vals
     binary_weights = (weights >= thresholds).astype(int)
     sns.heatmap(binary_weights, cmap="Greys", cbar=False)
-    plt.title("Binarized Heatmap (≥ half of max per topic)")
+    plt.title("Binarized Heatmap")
     plt.show()
 
 
