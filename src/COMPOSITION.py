@@ -23,6 +23,7 @@ from sklearn.metrics import auc
 import squidpy as sq
 import sys
 import itertools
+from collections import Counter
 import torch
 from torch import nn
 from torch.autograd import Variable
