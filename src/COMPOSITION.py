@@ -20,6 +20,7 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.cluster import KMeans, SpectralClustering
 import squidpy as sq
 import sys
+import itertools
 import torch
 from torch import nn
 from torch.autograd import Variable
