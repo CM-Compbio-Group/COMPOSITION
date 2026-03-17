@@ -1233,3 +1233,276 @@ def step1_prev_simulation():
     )
     
     return adata, data, dataloader, coords, domain_ids, cell_types_obs
+
+
+def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, viz_threshold=0.01):
+    # ============================================================
+    # 0) Functions
+    # ============================================================
+    def reorder_labels(
+            new_labels,
+            ref_labels,
+            new_categories=None,
+            ref_categories=None,
+            EPS=1e-3):
+        """
+        Reorder the labels of new_labels to best match ref_labels.
+        Uses the Hungarian algorithm (maximum weight bipartite matching)
+        on the contingency matrix between new_labels and ref_labels.
+        
+        Parameters:
+            new_labels: array-like
+            ref_labels: array-like
+            new_categories: list or array of label values (optional)
+            ref_categories: list or array of label values (optional)
+            EPS: small value to ensure non-zero contingency (default: 1e-3)
+        
+        Returns:
+            re_ordering: index array for new_categories reordered to match ref_categories
+            one_to_one_mapping: dict mapping from new label to reference label
+        """
+        import numpy as np
+        import warnings
+        from scipy.optimize import linear_sum_assignment
+    
+        # Determine unique categories if not provided
+        if new_categories is None:
+            new_categories = np.sort(np.unique(new_labels))
+        if ref_categories is None:
+            ref_categories = np.sort(np.unique(ref_labels))
+    
+        # Build contingency matrix [ref x new]
+        cm = np.zeros((len(ref_categories), len(new_categories)), dtype=float)
+        for i, r in enumerate(ref_categories):
+            for j, n in enumerate(new_categories):
+                cm[i, j] = np.sum((ref_labels == r) & (new_labels == n))
+        cm += EPS  # ensure all entries are positive
+    
+        # Hungarian algorithm minimizes cost; we want to maximize overlap → negate the matrix
+        cost_matrix = -cm
+    
+        # If the matrix is not square, pad it with dummy rows or columns
+        n_rows, n_cols = cost_matrix.shape
+        if n_rows < n_cols:  # pad rows
+            pad = np.full((n_cols - n_rows, n_cols), -EPS)
+            cost_matrix = np.vstack([cost_matrix, pad])
+        elif n_cols < n_rows:  # pad columns
+            pad = np.full((n_rows, n_rows - n_cols), -EPS)
+            cost_matrix = np.hstack([cost_matrix, pad])
+    
+        # Perform assignment
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+    
+        # Filter only the actual label pairs (ignore padded dummy assignments)
+        paired = [(r, c) for r, c in zip(row_ind, col_ind)
+                  if r < len(ref_categories) and c < len(new_categories)]
+    
+        if len(paired) < max(len(ref_categories), len(new_categories)):
+            warnings.warn("Warning: Some categories could not be matched.")
+    
+        # Create one-to-one label mapping
+        one_to_one_mapping = {
+            new_categories[c]: ref_categories[r] for r, c in paired
+        }
+    
+        return one_to_one_mapping
+
+    def get_significant_topics(p, num_topics):
+        p_numpy = p.detach().cpu().numpy()
+        dynamic_threshold = 1.0 / num_topics 
+        significant_topics = set()
+        for spot_weights in p_numpy:
+            indices = np.where(spot_weights > dynamic_threshold)[0]
+            significant_topics.update(indices)
+        return significant_topics
+    
+    def get_predicted_pairs_top3(p, weights, num_topics, threshold=None):
+        H, T = weights.shape # H: hidden units, T: topics
+        
+        # choose which topic columns to use
+        target_topics = get_significant_topics(p, num_topics) if indices is None else indices
+    
+        all_predicted_pairs = set()
+        for col in target_topics:
+            col_w = weights[:, col]
+            
+            if threshold is None:
+                valid_rows = np.arange(H)
+            else:
+                valid_rows = np.where(col_w >= threshold)[0]
+
+            if len(valid_rows) < 2:
+                continue
+            
+            valid_weights = col_w[valid_rows]
+            if len(valid_rows) > 3:
+                top_idx = np.argsort(valid_weights)[::-1][:3]
+            else:                
+                top_idx = np.argsort(valid_weights)[::-1]
+            top_rows = valid_rows[top_idx]
+            
+            for pair in itertools.combinations(top_rows, 2):
+                all_predicted_pairs.add(tuple(sorted(pair)))
+                
+        return all_predicted_pairs
+
+    def predicted_cell_type_pairs(p, model_ff, num_topics, threshold=None, indices=None):
+        weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+        return get_predicted_pairs_top3(p, weights, num_topics, threshold=threshold)
+    
+    # ============================================================
+    # 1) Modification to model_ff
+    # ============================================================
+    one_to_one_mapping = reorder_labels(cell_types_vae, cell_types_obs, ref_categories=[i for i in range(36)])
+    
+    # Copy the existing weight
+    original_weight = model_ff.fc1.weight.data.clone()
+    
+    # Rearrange weight according to mapping order
+    shuffled_weight = torch.zeros_like(original_weight)
+    for i in range(original_weight.size(0)):  # based on rows
+        try:
+            src_idx = int(one_to_one_mapping[str(i)])
+            shuffled_weight[src_idx] = original_weight[i]
+        except:
+            src_idx = 0
+            #shuffled_weight[src_idx] = original_weight[i]
+    
+    # Apply reordered weight to model
+    model_ff.fc1.weight.data = shuffled_weight
+
+    W = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    sns.heatmap(W, vmin=0, vmax=viz_threshold, cmap="viridis")  
+    plt.show()
+    
+    weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    #max_vals = weights.max(axis=0)  # shape: (16,)
+    thresholds = viz_threshold #viz_threshold * max_vals
+    binary_weights = (weights >= thresholds).astype(int)
+    sns.heatmap(binary_weights, cmap="Greys", cbar=False)
+    plt.title("Binarized Heatmap (≥ half of max per topic)")
+    plt.show()
+
+
+    # ============================================================
+    # 2) Evaluation based on viz_threshold
+    # ============================================================
+    # 1. Get cell type coenrichment pairs
+    print(get_significant_topics(p, num_topics))
+    all_predicted_pairs = predicted_cell_type_pairs(p, model_ff, indices=None, num_topics=19, threshold=viz_threshold)
+    
+    # 2. True pair definition
+    true_pairs = {
+        (0, 9), (0,10), (9,10),
+        (1,11), (1,12), (11,12),
+        (2,13), (2,14), (13,14),
+        (3,15), (3,16), (15,16),
+        (4,17), (4,18), (17,18),
+        (5,19), (5,20), (19,20),
+        (6,21), (6,22), (21,22),
+        (7,23), (7,24), (23,24),
+        (8,25), (8,26), (25,26)
+    }
+    
+    # 3. Get all possible pairs (36 choose 2)
+    all_possible_pairs = set(itertools.combinations(range(36), 2))
+    
+    # 4. Calculate TP, FP, FN, TN
+    TP = len(all_predicted_pairs & true_pairs)
+    FP = len(all_predicted_pairs - true_pairs)
+    FN = len(true_pairs - all_predicted_pairs)
+    TN = len(all_possible_pairs - (true_pairs | all_predicted_pairs))
+    
+    # 5. Calculate accuracy 
+    precision = TP / (TP + FP)
+    recall = TP / (TP + FN)
+    accuracy = (TP + TN) / len(all_possible_pairs)
+    f1 = 2 * precision * recall / (precision + recall)
+    
+    # 6. Print results
+    print(f"True Positive (TP): {TP}")
+    print(f"False Positive (FP): {FP}")
+    print(f"False Negative (FN): {FN}")
+    print(f"True Negative (TN): {TN}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1: {f1:.4f}")
+    print(f"Accuracy: {accuracy:.4f}")
+
+    # ============================================================
+    # 3) Evaluation irrelevant to viz_threshold
+    # ============================================================
+    true_pairs = {
+        (0, 9), (0,10), (9,10),
+        (1,11), (1,12), (11,12),
+        (2,13), (2,14), (13,14),
+        (3,15), (3,16), (15,16),
+        (4,17), (4,18), (17,18),
+        (5,19), (5,20), (19,20),
+        (6,21), (6,22), (21,22),
+        (7,23), (7,24), (23,24),
+        (8,25), (8,26), (25,26)
+    }
+    
+    all_possible_pairs = set(itertools.combinations(range(36), 2))
+    
+    thresholds = np.linspace(0, 1.0, 200)
+    
+    results = []
+    
+    for threshold in thresholds:
+        predicted_pairs = predicted_cell_type_pairs(
+            p, model_ff, indices=None,
+            num_topics=19, threshold=threshold
+        )
+    
+        TP = len(predicted_pairs & true_pairs)
+        FP = len(predicted_pairs - true_pairs)
+        FN = len(true_pairs - predicted_pairs)
+        TN = len(all_possible_pairs - (true_pairs | predicted_pairs))
+    
+        precision = TP / (TP + FP) if (TP + FP) > 0 else 1.0
+        recall = TP / (TP + FN) if (TP + FN) > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        accuracy = (TP + TN) / len(all_possible_pairs)
+    
+        results.append({
+            "threshold": threshold,
+            "TP": TP,
+            "FP": FP,
+            "FN": FN,
+            "TN": TN,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "accuracy": accuracy
+        })
+    
+    df_results = pd.DataFrame(results)
+    
+    pr_df = (
+        df_results[["threshold", "precision", "recall", "f1"]]
+        .sort_values(["recall", "precision"])
+        .drop_duplicates(subset=["recall", "precision"])
+    )
+    
+    if len(pr_df) < 2:
+        print("AUPRC calculation impossible: PR curve points less than 2.")
+        auprc = np.nan
+    else:
+        auprc = auc(pr_df["recall"], pr_df["precision"])
+        print(f"AUPRC: {auprc:.4f}")
+    
+    print(df_results)
+    
+    best_f1_row = df_results.loc[df_results["f1"].idxmax()]
+    print("\nBest threshold by F1-score")
+    print(best_f1_row)
+    
+    plt.figure(figsize=(6, 5))
+    plt.plot(pr_df["recall"], pr_df["precision"], marker="o")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title(f"Precision-Recall Curve (AUPRC = {auprc:.4f})" if not np.isnan(auprc) else "Precision-Recall Curve")
+    plt.grid(True)
+    plt.show()
