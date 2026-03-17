@@ -15,9 +15,11 @@ from scipy.stats import norm, multivariate_normal, wishart, Covariance
 from scipy.special import logsumexp
 import seaborn
 import seaborn as sns
+from sklearn.cluster import KMeans, SpectralClustering
+from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import adjusted_rand_score
-from sklearn.cluster import KMeans, SpectralClustering
+from sklearn.metrics import auc
 import squidpy as sq
 import sys
 import itertools
@@ -30,7 +32,6 @@ from torch_geometric.nn import VGAE, GCNConv, InnerProductDecoder, Sequential, S
 from torch_geometric.loader import NeighborLoader
 import torch.nn.functional as F
 from tqdm import trange
-from sklearn.decomposition import PCA
 from scipy import sparse
 import warnings
 warnings.filterwarnings("ignore", "is_categorical_dtype")
