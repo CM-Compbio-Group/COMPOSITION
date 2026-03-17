@@ -1162,6 +1162,28 @@ def step1_prev_simulation():
     # ------------------------------------------------------------
     M_expr = rng.normal(0, 1, size=(C, d_expr))     # (36,20)
     X_simulated = M_expr[cell_types_obs]            # (N,20)
+
+    obs = pd.DataFrame({
+        "domain_id": domain_ids.astype(str),
+        "cell_type": cell_types_obs.astype(str)
+    }, index=[f"spot_{i}" for i in range(N)])
+    var = pd.DataFrame(index=[f"feature_{i}" for i in range(d_expr)])
+    adata = ad.AnnData(X=X_simulated, obs=obs, var=var)
+    adata.obsm["spatial"] = coords
+    adata.obsm["z_embeddings"] = z_embeddings
+    adata.obsp["spatial_connectivities"] = adjacency
+    adata.uns["simulation_params"] = {
+        "K1": K1,
+        "K2": K2,
+        "K3": K3,
+        "C": C,
+        "spots_per_domain": spots_per_domain,
+        "H_dom": H_dom,
+        "W_dom": W_dom,
+        "domains_per_side": domains_per_side,
+        "DIM_Z": DIM_Z,
+        "d_expr": d_expr
+    }
     
     # ------------------------------------------------------------
     # 6) (Option) simple sanity check / visualization
@@ -1192,4 +1214,4 @@ def step1_prev_simulation():
         shuffle=True
     )
     
-    return data, dataloader, coords, domain_ids, cell_types_obs
+    return adata, data, dataloader, coords, domain_ids, cell_types_obs
