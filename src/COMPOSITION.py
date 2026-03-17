@@ -1228,6 +1228,11 @@ step2_run_prev_simulation = step2_run
 step3_postprocess_prev_simulation = step3_postprocess
 
 def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, num_topics=19, viz_threshold=0.01, manual_threshold_weight=1.0):
+    '''
+    Notes:
+        Don't run it multiple times with the same model because model_ff changed.
+    '''
+    
     # ============================================================
     # 0) Functions
     # ============================================================
@@ -1301,7 +1306,7 @@ def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs
 
     def get_significant_topics(p, num_topics):
         p_numpy = p.detach().cpu().numpy()
-        dynamic_threshold = manual_threshold_weight=1.0 * 1.0 / num_topics 
+        dynamic_threshold = manual_threshold_weight * 1.0 / num_topics 
         significant_topics = set()
         for spot_weights in p_numpy:
             indices = np.where(spot_weights > dynamic_threshold)[0]
