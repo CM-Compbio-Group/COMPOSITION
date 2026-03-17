@@ -1,4 +1,5 @@
 import anndata
+import anndata as ad
 import cellcharter as cc
 import copy
 from itertools import chain
@@ -1054,7 +1055,6 @@ def step1_prev_simulation():
     DIM_Z   = K1 + K2 + 1       # 19
     d_expr  = 20                # top-PC dimension
     # ============================================================
-    
     
     # ------------------------------------------------------------
     # 2) spatial coordinate & domain index
