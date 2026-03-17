@@ -98,3 +98,6 @@ All notable changes to this project will be documented in this file.
 
 #### Added - 2026-03-15
 - Integrated separate step1_prev_simulation, step4_evaluation_prev_simulation
+
+#### Added - 2026-03-17
+- Added step4_evaluation
