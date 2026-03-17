@@ -97,9 +97,13 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=True):
 
             raw = raw.T
             
-            sf = raw.sum(axis=0)
-            sf = sf / sf.mean()
-            x = np.log2(raw / sf + 1.0) 
+            sf = raw.sum(axis=0)            
+            #sf = sf / sf.mean()
+            sf_safe = sf.copy()
+            sf_safe[sf_safe == 0] = 1
+            sf_safe = sf_safe / sf_safe.mean()
+            #x = np.log2(raw / sf + 1.0) 
+            x = np.log2(raw / sf_safe + 1.0)
             x = (x - x.mean(axis=1, keepdims=True)) / x.std(axis=1, ddof=1, keepdims=True)
             x = x.T
             X = PCA(n_components=n_comps, svd_solver="full").fit_transform(x)
