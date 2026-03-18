@@ -193,4 +193,4 @@ dependencies:
       - zarr==2.18.3
       - zict==3.0.0
       - zipp==3.21.0
-prefix: /home/jeongbp/.conda/envs/minibatch
+prefix: /home/jeongbp/.conda/envs/composition
