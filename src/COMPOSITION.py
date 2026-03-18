@@ -48,6 +48,112 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=True):
         data: for running w/o minibatch
         dataloader: for running w/ minibatch
     """
+
+    def ensure_xy_from_obs(adata, inplace=True, verbose=True):
+        """
+        In adata.obs, the x and y coordinate columns are unified and matched with 'x' and 'y'.
+        """
+    
+        obs = adata.obs
+    
+        # 1. if there are x and y already, no action
+        if {"x", "y"}.issubset(obs.columns):
+            if verbose:
+                print("Found existing 'x', 'y' in adata.obs. Nothing to do.")
+            return adata
+    
+        # 2. define candidate pair in the order of priority
+        candidates = [
+            ("array_row", "array_col"),
+            ("x_centroid", "y_centroid"),
+            ("center_x", "center_y"),
+            ("x_location", "y_location"),
+            ("global_x", "global_y"),
+            ("X", "Y"),
+            ("pxl_row_in_fullres", "pxl_col_in_fullres"),
+            ("Coordinates.X", "Coordinates.Y"),
+            ("xc", "yc"),
+            ("bin_row", "bin_col"),
+            ("grid_row", "grid_col"),
+            ("vertex_x", "vertex_y"),
+            ("x_int", "y_int"),
+            ("x_um", "y_um"),
+        ]
+    
+        src_pair = None
+        for cx, cy in candidates:
+            if {cx, cy}.issubset(obs.columns):
+                src_pair = (cx, cy)
+                break
+    
+        if src_pair is None:
+            raise ValueError(
+                "Cannot infer spatial coordinates: none of the expected column pairs "
+                "are present in adata.obs."
+            )
+    
+        src_x, src_y = src_pair
+    
+        if not inplace:
+            adata = adata.copy()
+            obs = adata.obs
+    
+        # generate x, y from selected columns
+        obs["x"] = obs[src_x].values
+        obs["y"] = obs[src_y].values
+    
+        if verbose:
+            print(f"Created 'x', 'y' from '{src_x}', '{src_y}' in adata.obs.")
+    
+        return adata
+    
+    
+    def load_data_deprecated(X, adjacency):
+        """
+        Converts the node features and adjacency matrix into a PyTorch Geometric `Data` object.
+    
+        Args:
+            X (np.ndarray): Node features, shape (num_nodes, num_features).[real number]
+            adjacency (scipy.sparse.csr_matrix): Adjacency matrix of the graph.[{0,1}]
+    
+        Returns:
+            Data: PyTorch Geometric `Data` object containing:
+                  - x (torch.Tensor): Node features, shape (num_nodes, num_features).
+                  - edge_index (torch.Tensor): Edge indices in COO format, shape (2, num_edges).
+        """
+        
+        edge_index = np.vstack((adjacency.row, adjacency.col))
+        edge_index = torch.tensor(edge_index, dtype=torch.long)
+    
+        # Load node feature
+        x = torch.tensor(X, dtype=torch.float)
+    
+        return Data(x=x, edge_index=edge_index)
+    
+    
+    def load_data(X, adjacency):
+        """
+        Converts the node features and adjacency matrix into a PyTorch Geometric `Data` object.
+    
+        Args:
+            X (np.ndarray): Node features, shape (num_nodes, num_features).[real number]
+            adjacency (scipy.sparse.csr_matrix): Adjacency matrix of the graph.[{0,1}]
+    
+        Returns:
+            Data: PyTorch Geometric `Data` object containing:
+                  - x (torch.Tensor): Node features, shape (num_nodes, num_features).
+                  - edge_index (torch.Tensor): Edge indices in COO format, shape (2, num_edges).
+        """
+        
+        # Ensure adjacency is in COO format
+        adjacency_coo = adjacency.tocoo()
+        edge_index = np.vstack((adjacency_coo.row, adjacency_coo.col))
+        edge_index = torch.tensor(edge_index, dtype=torch.long)
+    
+        # Convert the DataFrame to a NumPy array and then to a PyTorch tensor
+        x = torch.tensor(X.values, dtype=torch.float)
+    
+        return Data(x=x, edge_index=edge_index)
     
     adata = adata_orig.copy()
     if 'spatial' in adata.obsm and adata.obsm['spatial'].shape[1] == 2:
@@ -129,6 +235,42 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=True):
 
 
 def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_celltypes=20, minibatch=False, temperature=0.1, early_stopping=False, alpha=1, wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, tanh_thr=0.005, grad_clip=100, l1_ratio=0, coupling_weight=0.05, optim='adam', lr=9e-3, weight_decay=5e-3, momentum=0, epochs=3000, extra_epochs=600):
+    def get_clf_class_weights(coords, n_celltypes, vae_z, p=4):
+        # partition the range of x and y axes
+        EPS = 1e-8
+        px = np.ones(p) * 1.0 / p
+        px[-1] -= EPS
+        xboundary = np.percentile(coords[:, 0], 100 * np.cumsum(px))
+        xboundary[-1] = np.max(coords[:, 0]) + 1
+        xdigit = np.digitize(coords[:, 0], xboundary, right=True)
+        ydigit = np.zeros(coords.shape[0], dtype=int)
+        for x in range(p):
+            idx_xbin = np.where(xdigit == x)[0]
+            py = np.ones(p) * 1.0 / p
+            py[-1] -= EPS
+            yboundary = np.percentile(coords[idx_xbin, 1], 100 * np.cumsum(py))
+            yboundary[-1] = np.max(coords[:, 1]) + 1
+            ydigit[idx_xbin] = np.digitize(coords[idx_xbin, 1], yboundary, right=True)
+        block_id = xdigit * p + ydigit
+        background = 1.0 * np.bincount(block_id) / len(block_id)
+        vae_z_np = vae_z.detach().cpu().numpy()
+        vae_argmax = np.argmax(vae_z_np, axis=1)
+        unique_info_cell_type = []
+        for i in range(n_celltypes):
+            joint_prob = pd.concat([
+                pd.Series(block_id[vae_argmax == i]).value_counts(),
+                pd.Series(block_id[vae_argmax != i]).value_counts()
+            ], axis=1)
+        
+            joint_prob.fillna(0, inplace=True)
+            joint_prob = joint_prob.values / joint_prob.values.sum()    
+            cond_entropy = scipy.stats.entropy(joint_prob.flatten()) - scipy.stats.entropy(joint_prob.sum(axis=1))
+            unique_info_cell_type.append(cond_entropy / scipy.stats.entropy(joint_prob.sum(axis=0)))    
+        weights = np.where( (np.array(unique_info_cell_type) > 0.95) | (np.mean(vae_z_np, axis=0) <= 0.01), 0.1, 1.0)
+        clf_class_weights = torch.from_numpy(weights.reshape(1,-1)).to(torch.float32)
+    
+        return clf_class_weights / clf_class_weights.mean()
+    
     pyg.seed_everything(seed)
     model = VGAE(ProdLDAEncoder(data.num_features, hid_dim, num_topics))
     model_ct = VAE(data.num_features, hid_dim, 1, num_categories=n_celltypes)
@@ -274,150 +416,6 @@ def step4_evaluation(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32,
     data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
     pred_label_map = make_pred_label_map(cell_types_vae, cell_types_obs)
     return cell_type_pairs(p, num_topics, pred_label_map)
-    
-
-def ensure_xy_from_obs(adata, inplace=True, verbose=True):
-    """
-    In adata.obs, the x and y coordinate columns are unified and matched with 'x' and 'y'.
-    """
-
-    obs = adata.obs
-
-    # 1. if there are x and y already, no action
-    if {"x", "y"}.issubset(obs.columns):
-        if verbose:
-            print("Found existing 'x', 'y' in adata.obs. Nothing to do.")
-        return adata
-
-    # 2. define candidate pair in the order of priority
-    candidates = [
-        ("array_row", "array_col"),
-        ("x_centroid", "y_centroid"),
-        ("center_x", "center_y"),
-        ("x_location", "y_location"),
-        ("global_x", "global_y"),
-        ("X", "Y"),
-        ("pxl_row_in_fullres", "pxl_col_in_fullres"),
-        ("Coordinates.X", "Coordinates.Y"),
-        ("xc", "yc"),
-        ("bin_row", "bin_col"),
-        ("grid_row", "grid_col"),
-        ("vertex_x", "vertex_y"),
-        ("x_int", "y_int"),
-        ("x_um", "y_um"),
-    ]
-
-    src_pair = None
-    for cx, cy in candidates:
-        if {cx, cy}.issubset(obs.columns):
-            src_pair = (cx, cy)
-            break
-
-    if src_pair is None:
-        raise ValueError(
-            "Cannot infer spatial coordinates: none of the expected column pairs "
-            "are present in adata.obs."
-        )
-
-    src_x, src_y = src_pair
-
-    if not inplace:
-        adata = adata.copy()
-        obs = adata.obs
-
-    # generate x, y from selected columns
-    obs["x"] = obs[src_x].values
-    obs["y"] = obs[src_y].values
-
-    if verbose:
-        print(f"Created 'x', 'y' from '{src_x}', '{src_y}' in adata.obs.")
-
-    return adata
-
-
-def load_data_deprecated(X, adjacency):
-    """
-    Converts the node features and adjacency matrix into a PyTorch Geometric `Data` object.
-
-    Args:
-        X (np.ndarray): Node features, shape (num_nodes, num_features).[real number]
-        adjacency (scipy.sparse.csr_matrix): Adjacency matrix of the graph.[{0,1}]
-
-    Returns:
-        Data: PyTorch Geometric `Data` object containing:
-              - x (torch.Tensor): Node features, shape (num_nodes, num_features).
-              - edge_index (torch.Tensor): Edge indices in COO format, shape (2, num_edges).
-    """
-    
-    edge_index = np.vstack((adjacency.row, adjacency.col))
-    edge_index = torch.tensor(edge_index, dtype=torch.long)
-
-    # Load node feature
-    x = torch.tensor(X, dtype=torch.float)
-
-    return Data(x=x, edge_index=edge_index)
-
-
-def load_data(X, adjacency):
-    """
-    Converts the node features and adjacency matrix into a PyTorch Geometric `Data` object.
-
-    Args:
-        X (np.ndarray): Node features, shape (num_nodes, num_features).[real number]
-        adjacency (scipy.sparse.csr_matrix): Adjacency matrix of the graph.[{0,1}]
-
-    Returns:
-        Data: PyTorch Geometric `Data` object containing:
-              - x (torch.Tensor): Node features, shape (num_nodes, num_features).
-              - edge_index (torch.Tensor): Edge indices in COO format, shape (2, num_edges).
-    """
-    
-    # Ensure adjacency is in COO format
-    adjacency_coo = adjacency.tocoo()
-    edge_index = np.vstack((adjacency_coo.row, adjacency_coo.col))
-    edge_index = torch.tensor(edge_index, dtype=torch.long)
-
-    # Convert the DataFrame to a NumPy array and then to a PyTorch tensor
-    x = torch.tensor(X.values, dtype=torch.float)
-
-    return Data(x=x, edge_index=edge_index)
-
-
-def get_clf_class_weights(coords, n_celltypes, vae_z, p=4):
-    # partition the range of x and y axes
-    EPS = 1e-8
-    px = np.ones(p) * 1.0 / p
-    px[-1] -= EPS
-    xboundary = np.percentile(coords[:, 0], 100 * np.cumsum(px))
-    xboundary[-1] = np.max(coords[:, 0]) + 1
-    xdigit = np.digitize(coords[:, 0], xboundary, right=True)
-    ydigit = np.zeros(coords.shape[0], dtype=int)
-    for x in range(p):
-        idx_xbin = np.where(xdigit == x)[0]
-        py = np.ones(p) * 1.0 / p
-        py[-1] -= EPS
-        yboundary = np.percentile(coords[idx_xbin, 1], 100 * np.cumsum(py))
-        yboundary[-1] = np.max(coords[:, 1]) + 1
-        ydigit[idx_xbin] = np.digitize(coords[idx_xbin, 1], yboundary, right=True)
-    block_id = xdigit * p + ydigit
-    background = 1.0 * np.bincount(block_id) / len(block_id)
-    vae_z_np = vae_z.detach().cpu().numpy()
-    vae_argmax = np.argmax(vae_z_np, axis=1)
-    unique_info_cell_type = []
-    for i in range(n_celltypes):
-        joint_prob = pd.concat([
-            pd.Series(block_id[vae_argmax == i]).value_counts(),
-            pd.Series(block_id[vae_argmax != i]).value_counts()
-        ], axis=1)
-    
-        joint_prob.fillna(0, inplace=True)
-        joint_prob = joint_prob.values / joint_prob.values.sum()    
-        cond_entropy = scipy.stats.entropy(joint_prob.flatten()) - scipy.stats.entropy(joint_prob.sum(axis=1))
-        unique_info_cell_type.append(cond_entropy / scipy.stats.entropy(joint_prob.sum(axis=0)))    
-    weights = np.where( (np.array(unique_info_cell_type) > 0.95) | (np.mean(vae_z_np, axis=0) <= 0.01), 0.1, 1.0)
-    clf_class_weights = torch.from_numpy(weights.reshape(1,-1)).to(torch.float32)
-
-    return clf_class_weights / clf_class_weights.mean()
 
 
 
