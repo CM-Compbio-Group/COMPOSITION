@@ -418,7 +418,6 @@ def step4_evaluation(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32,
     return cell_type_pairs(p, num_topics, pred_label_map), pred_label_map
 
 
-
 class VAE(nn.Module):
     """
     Variational Autoencoder (VAE) with Gumbel-softmax reparameterization for learning categorical latent representations.
