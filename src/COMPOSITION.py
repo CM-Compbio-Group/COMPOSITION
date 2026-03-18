@@ -415,7 +415,7 @@ def step4_evaluation(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32,
     
     data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
     pred_label_map = make_pred_label_map(cell_types_vae, cell_types_obs)
-    return cell_type_pairs(p, num_topics, pred_label_map)
+    return cell_type_pairs(p, num_topics, pred_label_map), pred_label_map
 
 
 
