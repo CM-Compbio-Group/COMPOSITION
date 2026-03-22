@@ -39,7 +39,7 @@ warnings.filterwarnings("ignore", "is_categorical_dtype")
 warnings.filterwarnings("ignore", "use_inf_as_na")
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 
-def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None):
+def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None, target_sum=1e4):
     """
     Args:
         adata_orig: Raw AnnData. If no adata_orig.layers['counts'], adata_orig.X should be raw counts
@@ -180,7 +180,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None):
         if not standardization:
             if 'counts' in adata.layers:
                 adata.X = adata.layers['counts'].copy()
-            sc.pp.normalize_total(adata, target_sum=1e4)
+            sc.pp.normalize_total(adata, target_sum=target_sum)
             sc.pp.log1p(adata)
         
             # HVG selection
