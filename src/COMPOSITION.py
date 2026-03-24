@@ -1990,7 +1990,7 @@ def viz_hierarchical_domain(z, x, y, K_final=15, colorspace="hsv", viz_dendrogra
                         cluster_to_color, link_mat,viz_dendrogram, viz_spatial, save_fig)
 
 
-def viz_celltype_topic_heatmap(model_ff, cell_types_vae, cell_types_obs, save=False):
+def viz_annot_celltype_niche(model_ff, cell_types_vae, cell_types_obs, save=False):
     plt.rc('font', size=15)
     
     # 1) data
