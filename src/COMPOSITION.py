@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import scanpy as sc
+import scipy.sparse as sp
 import scipy
 from scipy.stats import norm, multivariate_normal, wishart, Covariance
 from scipy.special import logsumexp
@@ -20,6 +21,7 @@ from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import adjusted_rand_score
 from sklearn.metrics import auc
+from sklearn.linear_model import LogisticRegression
 import squidpy as sq
 import sys
 import itertools
@@ -1052,16 +1054,6 @@ def train_vae(data, model, model_ct, model_ff, epochs=1500, temperature=1.0, lr=
 
 
 def step1_prev_simulation():
-    # ============================================================
-    # 0) Library
-    # ============================================================
-    import numpy as np
-    import pandas as pd
-    import scipy.sparse as sp
-    from sklearn.linear_model import LogisticRegression
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    
     # ============================================================
     # 1) Global parameters
     #    ── (If you want to change it, you can change it here) ───────────────────────────
