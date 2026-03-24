@@ -1787,6 +1787,8 @@ def viz_crosstab_hypothalamus(cell_types_vae, cell_types_obs, n_celltypes=None, 
     if save:
         plt.savefig("Confusion_Matrix_Given_Predicted_Column_Reordered.pdf", dpi=300,
                     bbox_inches='tight', pad_inches=0.01)
+        plt.savefig("Confusion_Matrix_Given_Predicted_Column_Reordered.png", dpi=300,
+                    bbox_inches='tight', pad_inches=0.01)
     
     plt.show()
 
