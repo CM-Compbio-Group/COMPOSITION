@@ -1533,3 +1533,259 @@ def eval_coenrichment_prev_simulation(model_ff, p, cell_types_vae, cell_types_ob
     plt.title(f"Precision-Recall Curve (AUPRC = {auprc:.4f})" if not np.isnan(auprc) else "Precision-Recall Curve")
     plt.grid(True)
     plt.show()
+
+
+def viz_crosstab_hypothalamus(cell_types_vae, cell_types_obs, n_celltypes=None, thresh=30, save=False):
+    import numpy as np
+    import re
+    from scipy.spatial.distance import pdist, squareform
+    from scipy.cluster.hierarchy import linkage, optimal_leaf_ordering, leaves_list
+    
+    # ----------------------------
+    # 0) parameters: removal threshold / distance / linkage
+    # ----------------------------
+    THRESH = thresh                # remove rows/columns whose sum is below this value
+    DIST_METRIC = "correlation"     # 'euclidean', 'cosine', 'correlation', etc.
+    LINKAGE_METHOD = "average" # 'single','complete','average','ward', etc. (if using cosine, avoid ward)
+    if n_celltypes is None:
+        n_celltypes = len(np.unique(cell_types_vae))
+    
+    # ----------------------------
+    # 1) manual annotation map (`Predicted` integer → string) 
+    # ----------------------------
+    pred_label_map = {i: f"{i}" for i in range(n_celltypes)} # modify this if needed
+    
+    # ----------------------------
+    # 2) prepare Series
+    # ----------------------------
+    true_series = pd.Series(cell_types_obs, name="")
+    pred_series = pd.Series(cell_types_vae.astype(int), name="Predicted")
+    
+    # ----------------------------
+    # 3) generate corretab (row=Predicted, column=True)
+    # ----------------------------
+    cont = pd.crosstab(index=pred_series, columns=true_series)
+    cont.index = cont.index.map(pred_label_map)
+    
+    # primary sorting by a visually pleasing row order (0–19)
+    pred_order = [pred_label_map[i] for i in range(n_celltypes)]
+    cont = cont.reindex(pred_order)
+    
+    # sort the columns once as well (natural-number order) 
+    # → then overwrite again during the subsequent clustering-based reordering
+    def natural_keys(text):
+        return [int(s) if s.isdigit() else s for s in re.split(r'(\d+)', text)]
+    cont = cont.reindex(sorted(cont.columns, key=natural_keys), axis=1)
+    
+    # ----------------------------
+    # 4) remove rows/columns based on the threshold
+    # ----------------------------
+    # first column filtering
+    col_mask = cont.sum(axis=0) >= THRESH
+    cont = cont.loc[:, col_mask]
+    
+    # subsequent row filtering
+    row_mask = cont.sum(axis=1) >= THRESH
+    cont = cont.loc[row_mask, :]
+    
+    # stop if empty after filtering
+    if cont.shape[0] == 0 or cont.shape[1] == 0:
+        raise ValueError(
+            f"After thresholding (THRESH={THRESH}), confusion matrix is empty: "
+            f"{cont.shape}. Try lowering THRESH."
+        )
+    
+    # ----------------------------
+    # 5) determine the column and row order using hierarchical clustering (optimal leaf ordering)
+    # ----------------------------
+    def hierarchical_reorder(df, on="columns",
+                             dist_metric=DIST_METRIC,
+                             link_method=LINKAGE_METHOD):
+        """
+        df: DataFrame (counts)
+        on: 'columns' or 'index' (rows)
+        return: list of reordered labels
+        """
+        if on == "columns":
+            X = df.T.values  # treat each column as a vector (along the row dimension)
+            labels = df.columns.to_list()
+        elif on == "index":
+            X = df.values    # treat each row as a vector (along the column dimension)
+            labels = df.index.to_list()
+        else:
+            raise ValueError("on must be 'columns' or 'index'")
+    
+        # check the minimum dimensionality required for clustering
+    
+        if X.shape[0] < 2:
+            return labels  # as is if 1
+    
+        # Add a small safeguard in case distance computation becomes invalid due to all-zero vectors (zero variance), etc.
+        # (Rows/columns with sum 0 have already been removed, but this also covers cases where all values are identical.)
+        # Here, we proceed as is; if a problem occurs, try changing the metric to 'euclidean'.
+        D = pdist(X, metric=dist_metric)             # (n*(n-1)/2,) condensed distance
+        Z = linkage(D, method=link_method)           # dendrogram
+        Z_opt = optimal_leaf_ordering(Z, D)          # optimal leaf order
+        order = leaves_list(Z_opt)                   # index order
+    
+        return [labels[i] for i in order]
+    
+    # rearrange columns
+    new_cols = hierarchical_reorder(cont, on="columns",
+                                    dist_metric=DIST_METRIC,
+                                    link_method=LINKAGE_METHOD)
+    cont = cont.loc[:, new_cols]
+    
+    # rearrange rows
+    new_rows = hierarchical_reorder(cont, on="index",
+                                    dist_metric=DIST_METRIC,
+                                    link_method=LINKAGE_METHOD)
+    cont = cont.loc[new_rows, :]
+    
+    
+    # ----------------------------
+    # 6) vizualize heatmap
+    # ----------------------------
+    
+    # rearrange columns in manual order
+    manual_cols = [
+        'I-16', 'I-2', 'I-23', 'I-13', 'I-9', 'I-18', 'I-15', 'I-10', 'I-11', 'I-12', 'I-14', 'I-7',
+        'I-3', 'I-1', 'I-8', 'I-4',
+        'E-17', 'E-12', 'E-15', 'E-8', 'E-7', 'E-4', 'E-1', 'E-24', 'E-18', 'E-3', 'E-16', 'E-19',
+        'E-13', 'E-23', 'E-9', 'E-14', 
+        'OD Mature 1', 'OD Mature 2', 'Microglia', 'Astrocyte',
+        'Endothelial 3', 'Endothelial 1', 'Ependymal', 'OD Immature 1'
+    ]
+    
+    # use only the columns that actually exist in `cont`, in the order listed above
+    manual_cols_in_cont = [c for c in manual_cols if c in cont.columns]
+    cont = cont.reindex(columns=manual_cols_in_cont)
+    
+    # assign group labels by column (`I-` / `E-` / others = `Non-neurons`)
+    col_groups = []
+    for c in cont.columns:
+        if c.startswith("I-"):
+            col_groups.append("Inhibitory neurons")
+        elif c.startswith("E-"):
+            col_groups.append("Excitatory neurons")
+        else:
+            col_groups.append("Non-neurons")
+    
+    # set the style and arrange the axes using `GridSpec`
+    sns.set(context="talk", style="white")
+    
+    fig = plt.figure(figsize=(16, 11))
+    gs = fig.add_gridspec(
+        nrows=2, ncols=2,
+        height_ratios=[0.985, 0.015],   # top: heatmap; bottom: group bar + x-axis ticks
+        width_ratios=[20, 1],         # left: main panel; right: colorbar
+        wspace=0.15,
+        hspace=0.05
+    )
+    
+    # main heatmap axis, group bar axis, and colorbar axis
+    ax_hm    = fig.add_subplot(gs[0, 0])
+    ax_group = fig.add_subplot(gs[1, 0], sharex=ax_hm)
+    cax      = fig.add_subplot(gs[:, 1])
+    
+    # heatmap (keep the existing colormap and style)
+    hm = sns.heatmap(
+        cont,
+        cmap='Spectral_r',      # keep the existing colormap
+        annot=True,
+        fmt="d",
+        cbar=True,
+        cbar_ax=cax,            # a colorbar that spans the full height on the right
+        square=False,
+        linewidths=0,
+        annot_kws={"size":10},
+        cbar_kws={"shrink": 0.8}
+        ,
+        ax=ax_hm
+    )
+    
+    ax_hm.set_title("Confusion Matrix", pad=14, fontsize=27)
+    ax_hm.set_ylabel("Predicted Cell Type Label", fontsize=20)
+    
+    # hide the heatmap’s x-axis and show it on the group bar axis below.
+    ax_hm.tick_params(axis='x', bottom=False, labelbottom=False)
+    
+    # y tick font
+    ax_hm.set_yticklabels(ax_hm.get_yticklabels(), rotation=0, fontsize=15)
+    
+    # clean up the borders
+    for spine in ax_hm.spines.values():
+        spine.set_visible(False)
+    ax_hm.grid(False)
+    
+    # draw a group bar between the heatmap and the x-axis labels (`ax_group`)
+    group_color_map = {
+        "Inhibitory neurons": "#377eb8",
+        "Excitatory neurons": "#e41a1c",
+        "Non-neurons":       "#4daf4a",
+    }
+    
+    n_cols = cont.shape[1]
+    
+    # set up the group bar axis
+    ax_group.set_xlim(0, n_cols)
+    ax_group.set_ylim(0, 1)
+    ax_group.set_yticks([])
+    ax_group.set_ylabel("")
+    
+    # set the x-ticks and labels here (below the heatmap)
+    ax_group.set_xticks(np.arange(n_cols) + 0.5)
+    ax_group.set_xticklabels(cont.columns.astype(str), rotation=90,
+                             ha="right", fontsize=12)
+    ax_group.set_xlabel("Given Cell Type Label", fontsize=20)
+    
+    # one long box for each consecutive segment of the same group
+    start_idx = 0
+    current_group = col_groups[0]
+    
+    for i in range(1, n_cols + 1):
+        if i == n_cols or col_groups[i] != current_group:
+            end_idx = i  # exclusive
+            ax_group.add_patch(
+                plt.Rectangle(
+                    (start_idx, 0),           # (x0, y0)
+                    end_idx - start_idx,      # width
+                    1,                        # height
+                    transform=ax_group.transData,
+                    facecolor=group_color_map[current_group],
+                    edgecolor='none',
+                    alpha=0.7
+                )
+            )
+            if i < n_cols:
+                start_idx = i
+                current_group = col_groups[i]
+    
+    # remove the borders and grid from the group bar axis
+    for spine in ax_group.spines.values():
+        spine.set_visible(False)
+    ax_group.grid(False)
+    
+    # column group legend: place it below the colorbar
+    handles = [
+        mpatches.Patch(color=group_color_map["Inhibitory neurons"], label="Inhibitory neurons"),
+        mpatches.Patch(color=group_color_map["Excitatory neurons"], label="Excitatory neurons"),
+        mpatches.Patch(color=group_color_map["Non-neurons"],       label="Non-neurons"),
+    ]
+    
+    # place the legend directly below `cax` (the colorbar axis)
+    cax.legend(
+        handles=handles,
+        title="Column groups",
+        loc="upper center",
+        bbox_to_anchor=(0.8, 0),   # y<0 이면 컬러바 아래로 내려감
+        frameon=False
+    )
+    
+    plt.tight_layout()
+
+    if save:
+        plt.savefig("Confusion_Matrix_Given_Predicted_Column_Reordered.pdf", dpi=300,
+                    bbox_inches='tight', pad_inches=0.01)
+    
+    plt.show()
