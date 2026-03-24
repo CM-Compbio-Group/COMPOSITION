@@ -5,6 +5,7 @@ import copy
 from itertools import chain
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
+import matplotlib.patches as mpatches
 from numba.core.errors import NumbaDeprecationWarning
 import numpy as np
 import pandas as pd
