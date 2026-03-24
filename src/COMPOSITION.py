@@ -349,80 +349,6 @@ def step3_postprocess(data, model, model_ct, model_ff, temperature=0.1, n_cluste
     return p, cell_types_niche, cell_types_vae, niche_composition, pred_domains, recon_celltype, logits
 
 
-def step4_evaluation(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32, THRESH_PAIR=0.05, delta=0.4):
-    def get_significant_topics(p, num_topics, manual_threshold_weight=1):
-        p_numpy = p.detach().cpu().numpy()
-        dynamic_threshold = manual_threshold_weight * 1.0 / num_topics 
-        significant_topics = set()
-        for spot_weights in p_numpy:
-            indices = np.where(spot_weights > dynamic_threshold)[0]
-            significant_topics.update(indices)
-        return significant_topics
-
-    def make_pred_label_map(cell_types_vae, cell_types_obs, delta=delta, default_label="Mixed", sep="/"):
-        cell_types_vae = np.asarray(cell_types_vae)
-        cell_types_obs = np.asarray(cell_types_obs)
-    
-        if len(cell_types_vae) != len(cell_types_obs):
-            raise ValueError("The length of cell_types_vae and cell_types_obs must be the same.")
-    
-        pred_label_map = {}
-    
-        for vae_ct in np.unique(cell_types_vae):
-            obs_in_cluster = cell_types_obs[cell_types_vae == vae_ct]
-    
-            if len(obs_in_cluster) == 0:
-                pred_label_map[int(vae_ct)] = default_label
-                continue
-    
-            counts = Counter(obs_in_cluster)
-            total = len(obs_in_cluster)
-    
-            labels_above_delta = []
-            for label, count in counts.most_common():
-                ratio = count / total
-                if ratio >= delta:
-                    labels_above_delta.append(label)
-    
-            if len(labels_above_delta) > 0:
-                pred_label_map[int(vae_ct)] = sep.join(labels_above_delta)
-            else:
-                pred_label_map[int(vae_ct)] = default_label
-    
-        return pred_label_map
-    
-    def cell_type_pairs(p, num_topics, pred_label_map):
-        target_topics = get_significant_topics(p, num_topics)
-        pair_results = []
-        n_celltypes, n_topics = data_matrix.shape
-        
-        for pp in range(n_topics):
-            valid_cells = [a for a in range(n_celltypes) if data_matrix[a, pp] > THRESH_PAIR]
-            for a, b in itertools.combinations(valid_cells, 2):
-                pair_results.append({
-                    "topic": pp,
-                    "celltype_a_idx": a,
-                    "celltype_a": pred_label_map[a],
-                    "phi_a": data_matrix[a, pp],
-                    "celltype_b_idx": b,
-                    "celltype_b": pred_label_map[b],
-                    "phi_b": data_matrix[b, pp],
-                })
-        
-        pair_df = pd.DataFrame(pair_results)
-        if len(pair_df) > 0:
-            pair_df["min_phi"] = pair_df[["phi_a", "phi_b"]].min(axis=1)
-            pair_df["mean_phi"] = pair_df[["phi_a", "phi_b"]].mean(axis=1)
-            pair_df = pair_df.sort_values(["topic", "min_phi", "mean_phi"], ascending=[True, False, False]).reset_index(drop=True)
-        
-        print(pair_df)
-        return pair_df
-    
-    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
-    pred_label_map = make_pred_label_map(cell_types_vae, cell_types_obs)
-    return cell_type_pairs(p, num_topics, pred_label_map), pred_label_map
-
-
 class VAE(nn.Module):
     """
     Variational Autoencoder (VAE) with Gumbel-softmax reparameterization for learning categorical latent representations.
@@ -1247,7 +1173,87 @@ def step1_prev_simulation():
 step2_run_prev_simulation = step2_run
 step3_postprocess_prev_simulation = step3_postprocess
 
-def step4_evaluation_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32, viz_threshold=0.01, manual_threshold_weight=1.0):
+
+
+# ----------------------------
+# auxiliary functions 
+# ----------------------------
+
+def eval_coenrichment(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32, THRESH_PAIR=0.05, delta=0.4):
+    def get_significant_topics(p, num_topics, manual_threshold_weight=1):
+        p_numpy = p.detach().cpu().numpy()
+        dynamic_threshold = manual_threshold_weight * 1.0 / num_topics 
+        significant_topics = set()
+        for spot_weights in p_numpy:
+            indices = np.where(spot_weights > dynamic_threshold)[0]
+            significant_topics.update(indices)
+        return significant_topics
+
+    def make_pred_label_map(cell_types_vae, cell_types_obs, delta=delta, default_label="Mixed", sep="/"):
+        cell_types_vae = np.asarray(cell_types_vae)
+        cell_types_obs = np.asarray(cell_types_obs)
+    
+        if len(cell_types_vae) != len(cell_types_obs):
+            raise ValueError("The length of cell_types_vae and cell_types_obs must be the same.")
+    
+        pred_label_map = {}
+    
+        for vae_ct in np.unique(cell_types_vae):
+            obs_in_cluster = cell_types_obs[cell_types_vae == vae_ct]
+    
+            if len(obs_in_cluster) == 0:
+                pred_label_map[int(vae_ct)] = default_label
+                continue
+    
+            counts = Counter(obs_in_cluster)
+            total = len(obs_in_cluster)
+    
+            labels_above_delta = []
+            for label, count in counts.most_common():
+                ratio = count / total
+                if ratio >= delta:
+                    labels_above_delta.append(label)
+    
+            if len(labels_above_delta) > 0:
+                pred_label_map[int(vae_ct)] = sep.join(labels_above_delta)
+            else:
+                pred_label_map[int(vae_ct)] = default_label
+    
+        return pred_label_map
+    
+    def cell_type_pairs(p, num_topics, pred_label_map):
+        target_topics = get_significant_topics(p, num_topics)
+        pair_results = []
+        n_celltypes, n_topics = data_matrix.shape
+        
+        for pp in range(n_topics):
+            valid_cells = [a for a in range(n_celltypes) if data_matrix[a, pp] > THRESH_PAIR]
+            for a, b in itertools.combinations(valid_cells, 2):
+                pair_results.append({
+                    "topic": pp,
+                    "celltype_a_idx": a,
+                    "celltype_a": pred_label_map[a],
+                    "phi_a": data_matrix[a, pp],
+                    "celltype_b_idx": b,
+                    "celltype_b": pred_label_map[b],
+                    "phi_b": data_matrix[b, pp],
+                })
+        
+        pair_df = pd.DataFrame(pair_results)
+        if len(pair_df) > 0:
+            pair_df["min_phi"] = pair_df[["phi_a", "phi_b"]].min(axis=1)
+            pair_df["mean_phi"] = pair_df[["phi_a", "phi_b"]].mean(axis=1)
+            pair_df = pair_df.sort_values(["topic", "min_phi", "mean_phi"], ascending=[True, False, False]).reset_index(drop=True)
+        
+        print(pair_df)
+        return pair_df
+    
+    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    pred_label_map = make_pred_label_map(cell_types_vae, cell_types_obs)
+    return cell_type_pairs(p, num_topics, pred_label_map), pred_label_map
+
+
+def eval_coenrichment_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32, viz_threshold=0.01, manual_threshold_weight=1.0):
     '''
     Notes:
         Don't run it multiple times with the same model because model_ff changed.
