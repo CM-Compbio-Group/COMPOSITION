@@ -2233,3 +2233,18 @@ def viz_celltype_spatial(cell_types_vae, cell_types_niche, x, y, save=False):
                     bbox_inches='tight', pad_inches=0.01)
     plt.show()
     plt.close()
+
+
+def save_models(model, model_ff, model_ct, p_mat, base_dir='./', mark_time=True):
+    os.makedirs(base_dir, exist_ok=True)
+    if mark_time:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        torch.save(model.state_dict(), os.path.join(base_dir, f"model_{timestamp}.pth"))
+        torch.save(model_ff.state_dict(), os.path.join(base_dir, f"model_ff_{timestamp}.pth"))
+        torch.save(model_ct.state_dict(), os.path.join(base_dir, f"model_ct_{timestamp}.pth"))
+        torch.save(p_mat, os.path.join(base_dir, f"p_mat_{timestamp}.pt"))
+    else:
+        torch.save(model.state_dict(), os.path.join(base_dir, "model.pth"))
+        torch.save(model_ff.state_dict(), os.path.join(base_dir, "model_ff.pth"))
+        torch.save(model_ct.state_dict(), os.path.join(base_dir, "model_ct.pth"))
+        torch.save(p_mat, os.path.join(base_dir, "p_mat.pt"))
