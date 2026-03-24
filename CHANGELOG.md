@@ -101,3 +101,6 @@ All notable changes to this project will be documented in this file.
 
 #### Added - 2026-03-17
 - Added step4_evaluation
+
+#### Fixed - 2026-03-24
+- Renamed step4_evaluation to eval_coenrichment
