@@ -111,3 +111,4 @@ All notable changes to this project will be documented in this file.
 - Added viz_annot_celltype_niche
 - Added viz_celltype_spatial
 - Added viz_niches
+- Added save_models
