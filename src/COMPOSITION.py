@@ -1397,6 +1397,7 @@ def eval_coenrichment_prev_simulation(model_ff, p, cell_types_vae, cell_types_ob
     W = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
     sns.heatmap(W, vmin=0, vmax=viz_threshold, cmap="viridis")  
     plt.show()
+    plt.close()
     
     weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
     #max_vals = weights.max(axis=0)  # shape: (16,)
@@ -1405,6 +1406,7 @@ def eval_coenrichment_prev_simulation(model_ff, p, cell_types_vae, cell_types_ob
     sns.heatmap(binary_weights, cmap="Greys", cbar=False)
     plt.title("Binarized Heatmap")
     plt.show()
+    plt.close()
 
 
     # ============================================================
@@ -1533,6 +1535,7 @@ def eval_coenrichment_prev_simulation(model_ff, p, cell_types_vae, cell_types_ob
     plt.title(f"Precision-Recall Curve (AUPRC = {auprc:.4f})" if not np.isnan(auprc) else "Precision-Recall Curve")
     plt.grid(True)
     plt.show()
+    plt.close()
 
 
 def viz_crosstab_hypothalamus(cell_types_vae, cell_types_obs, n_celltypes=None, thresh=30, save=False):
@@ -1791,6 +1794,7 @@ def viz_crosstab_hypothalamus(cell_types_vae, cell_types_obs, n_celltypes=None, 
                     bbox_inches='tight', pad_inches=0.01)
     
     plt.show()
+    plt.close()
 
 
 def viz_hierarchical_domain(z, x, y, K_final=15, colorspace="hsv", viz_dendrogram=True, viz_spatial=True, save_fig=False, figurename="figure.png"):
@@ -1977,6 +1981,7 @@ def viz_hierarchical_domain(z, x, y, K_final=15, colorspace="hsv", viz_dendrogra
         if save_fig:
             plt.savefig(filename, dpi=300)
         plt.show()
+        plt.close()
 
     proto_id, link_mat = STEP1_prototype_compression_hierarchical_clustering(z)
     proto_cluster, clust_rep_leaf, rep_leaves_set = STEP2_specify_k_final_clusters(link_mat, K_final = K_final)
@@ -2088,3 +2093,43 @@ def viz_celltype_topic_heatmap(model_ff, cell_types_vae, cell_types_obs, save=Fa
         fig.savefig("celltype_topic_heatmap_marked.pdf", dpi=300, bbox_inches='tight', pad_inches=0.02)
         fig.savefig("celltype_topic_heatmap_marked.png", dpi=300, bbox_inches='tight', pad_inches=0.02)
     plt.show()
+    plt.close()
+
+
+def viz_niches(p, save=False):
+    import math
+    
+    n_niches = p.shape[1]   # e.g. 32
+    nrows = math.ceil(n_niches / 8)
+    ncols = math.ceil(n_niches / nrows)
+    
+    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 3, nrows * 3), dpi=300)
+    axes = axes.ravel()
+    
+    for idx, ax in enumerate(axes):
+        if idx >= n_niches:
+            ax.axis("off")
+            continue
+    
+        channel = p[:, idx].detach().cpu().numpy()
+    
+        sc = ax.scatter(
+            -spatial_coords.x,
+            spatial_coords.y,
+            c=channel,
+            s=1,
+            cmap='viridis',
+            linewidth=0
+        )
+    
+        ax.set_title(f"Niche {idx}", fontsize=30)
+        ax.axis('off')
+    
+    plt.tight_layout()
+
+    if save:
+        plt.savefig("niches_plot.png", dpi=300, bbox_inches="tight")
+        plt.savefig("niches_plot.pdf", bbox_inches="tight")
+    
+    plt.show()
+    plt.close()
