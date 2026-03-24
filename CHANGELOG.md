@@ -109,3 +109,4 @@ All notable changes to this project will be documented in this file.
 - Added viz_crosstab_hypothalamus
 - Added viz_hierarchical_domain
 - Added viz_celltype_topic_heatmap
+- Added viz_niches
