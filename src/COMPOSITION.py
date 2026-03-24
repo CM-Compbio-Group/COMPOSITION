@@ -1789,3 +1789,195 @@ def viz_crosstab_hypothalamus(cell_types_vae, cell_types_obs, n_celltypes=None, 
                     bbox_inches='tight', pad_inches=0.01)
     
     plt.show()
+
+
+def viz_hierarchical_domain(z, x, y, K_final=15, colorspace="hsv", viz_dendrogram=True, viz_spatial=True, save_fig=False, figurename="figure.png"):
+    # ───────────────────── Library ─────────────────────
+    import numpy  as np
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import matplotlib.colors  as mcolors
+    import matplotlib.patches as mpatches
+    from collections import defaultdict
+    from sklearn.preprocessing    import StandardScaler
+    from sklearn.cluster          import MiniBatchKMeans
+    from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+    from scipy.cluster.hierarchy import to_tree
+    
+    def STEP1_prototype_compression_hierarchical_clustering(z, n_proto=1000, random_state=42):
+        scaler    = StandardScaler()
+        z_std     = scaler.fit_transform(z)
+        mbk       = MiniBatchKMeans(n_clusters=n_proto, batch_size=8192,
+                                    random_state=random_state, n_init="auto")
+        proto_id  = mbk.fit_predict(z_std)                 # each cell → prototype ID
+        protos    = mbk.cluster_centers_                  # (n_proto, n_features)
+        link_mat  = linkage(protos, method="ward", metric="euclidean")     
+        return proto_id, link_mat
+    
+    def STEP2_specify_k_final_clusters(link_mat, K_final=K_final):
+        proto_cluster  = fcluster(link_mat, K_final, criterion="maxclust")  # (n_proto,)
+        clust_to_protos = defaultdict(list)
+        for pid, c in enumerate(proto_cluster):
+            clust_to_protos[c].append(pid)
+        # "Representative leaf number" of each final cluster (smallest prototype ID)
+        clust_rep_leaf = {c: min(leaf_ids) for c, leaf_ids in clust_to_protos.items()}
+        rep_leaves_set = set(clust_rep_leaf.values())     
+        return proto_cluster, clust_rep_leaf, rep_leaves_set
+    
+    def STEP3_color_palette_mapping(link_mat):
+        def _assign_color(node, h0, h1, depth, out, colorspace=colorspace):
+            """
+            Recursively assign a unique color to each leaf.
+            
+            Parameters
+            ----------
+            node : scipy.cluster.hierarchy.ClusterNode
+            h0, h1 : float
+                Start and end hue (or analogous range) values
+            depth : int
+                Current depth in tree (not used here but could help for other color logic)
+            out : dict
+                Mapping of node.id → RGB tuple
+            colorspace : str
+                Color space to use. One of ["hsv", "hsl", "lab"]
+            """
+            import colorsys
+            from colorsys import hsv_to_rgb, hls_to_rgb
+            from matplotlib import colors as mcolors
+            try:
+                from colormath.color_objects import LabColor, sRGBColor
+                from colormath.color_conversions import convert_color
+            except ImportError:
+                pass
+            
+            if node.is_leaf():
+                h = (h0 + h1) / 2
+        
+                if colorspace == "hsv":
+                    rgb = hsv_to_rgb(h, 0.55, 0.90)
+        
+                elif colorspace == "hsl":
+                    rgb = hls_to_rgb(h, 0.72, 0.55)  # lightness, saturation
+        
+                elif colorspace == "lab":
+                    # L fixed, a and b interpolated
+                    a = -60 + h * 120  # -60 ~ +60
+                    b =  40 - h * 80   # 40 ~ -40
+                    lab = LabColor(lab_l=75, lab_a=a, lab_b=b)
+                    rgb_obj = convert_color(lab, sRGBColor)
+                    rgb = (rgb_obj.clamped_rgb_r, rgb_obj.clamped_rgb_g, rgb_obj.clamped_rgb_b)
+        
+                else:
+                    raise ValueError(f"Unsupported colorspace: {colorspace}")
+        
+                out[node.id] = rgb
+        
+            else:
+                mid = (h0 + h1) / 2
+                _assign_color(node.get_left(),  h0,  mid, depth + 1, out, colorspace)
+                _assign_color(node.get_right(), mid, h1,  depth + 1, out, colorspace)
+        
+        root, _ = to_tree(link_mat, rd=True)   # deterministic tree object
+        proto_rgb = {}
+        _assign_color(root, 0.0, 1.0, 0, proto_rgb)      # {leaf_id: (r,g,b)}
+        proto_to_color = {pid: mcolors.to_hex(rgb) for pid, rgb in proto_rgb.items()}
+        cluster_to_color = {c: proto_to_color[clust_rep_leaf[c]] for c in clust_rep_leaf}
+        return proto_to_color, cluster_to_color
+    
+    def STEP4_visualization(x, y, proto_id, proto_to_color,
+                            proto_cluster, clust_rep_leaf,
+                            cluster_to_color, link_mat,
+                            viz_dendrogram=viz_dendrogram, viz_spatial=viz_spatial,
+                            save_fig=save_fig, figurename=figurename):
+    
+        rep_leaves_set = set(clust_rep_leaf.values())
+        
+        fig = plt.figure(figsize=(13, 6))
+        n_cols = int(viz_dendrogram) + int(viz_spatial)
+        gs = fig.add_gridspec(1, n_cols, width_ratios=[1]*n_cols, wspace=0.25)
+    
+        ax_idx = 0
+    
+        # ────── A. Dendrogram ──────
+        if viz_dendrogram:
+            ax_d = fig.add_subplot(gs[ax_idx])
+            ax_idx += 1
+    
+            def leaf_color_func(id_):
+                return proto_to_color.get(id_, "#555555")
+    
+            def leaf_label_func(id_):
+                if id_ in rep_leaves_set:
+                    return f"({id_})  ■"
+                else:
+                    return ""
+    
+            dendrogram(link_mat,
+                       orientation="left",
+                       leaf_label_func=leaf_label_func,
+                       leaf_font_size=8,
+                       link_color_func=leaf_color_func,
+                       color_threshold=0,
+                       ax=ax_d)
+    
+            ax_d.set_title("UPGMA dendrogram\n(representative leaves only)", fontsize=10)
+            ax_d.tick_params(left=False, labelleft=False)
+            ax_d.set_xlabel("Distance")
+    
+            for label in ax_d.get_yticklabels():
+                try:
+                    id_ = int(label.get_text().strip("()■ "))
+                    if id_ in proto_to_color:
+                        label.set_color(proto_to_color[id_])
+                except:
+                    continue
+    
+        # ────── B. Spatial Plot ──────
+        if viz_spatial:
+            ax_s = fig.add_subplot(gs[ax_idx])
+    
+            # Color and representative leaf
+            hc_leaf = [clust_rep_leaf[proto_cluster[pid]] for pid in proto_id]
+            hc_color = [proto_to_color[pid] for pid in proto_id]
+    
+            ax_s.scatter(x, y, c=hc_color, s=4, linewidth=0)
+    
+            # Adjust crop range 
+            xr, yr = (x.max()-x.min()), (y.max()-y.min())
+            
+            # Visualize representative leaf number text
+            cent = pd.DataFrame({"x": x, "y": y, "leaf": hc_leaf}) \
+                     .groupby("leaf")[["x", "y"]].median()
+    
+            x_lo, x_hi = ax_s.get_xlim()
+            y_lo, y_hi = ax_s.get_ylim()
+    
+            for lf, (cx, cy) in cent.iterrows():
+                if x_lo < cx < x_hi and y_lo < cy < y_hi:
+                    ax_s.text(cx, cy, f"({lf})",
+                              ha="center", va="center",
+                              fontsize=8, weight="bold")
+    
+            # Add legends
+            handles = [mpatches.Patch(color=cluster_to_color[c],
+                                      label=f"({clust_rep_leaf[c]})")
+                       for c in sorted(cluster_to_color)]
+            leg = ax_s.legend(handles=handles, title="Hierarchical leaf\n(representative)",
+                              bbox_to_anchor=(1.04, 1), loc="upper left", borderaxespad=0.)
+            leg._legend_box.align = "left"
+    
+            ax_s.axis("off")
+            ax_s.set_title("Spatial feature plot – clusters labelled by leaf index", pad=6)
+    
+        # ────── Save or Show ──────
+        plt.tight_layout()
+        if save_fig:
+            plt.savefig(filename, dpi=300)
+        plt.show()
+
+    proto_id, link_mat = STEP1_prototype_compression_hierarchical_clustering(z)
+    proto_cluster, clust_rep_leaf, rep_leaves_set = STEP2_specify_k_final_clusters(link_mat, K_final = K_final)
+    proto_to_color, cluster_to_color = STEP3_color_palette_mapping(link_mat)
+    STEP4_visualization(x, y, proto_id, proto_to_color,proto_cluster, clust_rep_leaf,
+                        cluster_to_color, link_mat,viz_dendrogram, viz_spatial, save_fig)
