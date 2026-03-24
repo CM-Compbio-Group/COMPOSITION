@@ -104,3 +104,6 @@ All notable changes to this project will be documented in this file.
 
 #### Fixed - 2026-03-24
 - Renamed step4_evaluation to eval_coenrichment
+
+#### Added - 2026-03-24
+- Added viz_crosstab_hypothalamus
