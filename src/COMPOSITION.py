@@ -186,7 +186,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None, t
             if 'counts' in adata.layers:
                 adata.X = adata.layers['counts'].copy()
 
-            '''
+            ''' The following could not reveal the layered structure of the cerebral cortex
             sc.pp.normalize_total(adata, target_sum=target_sum)
             sc.pp.log1p(adata)
         
@@ -205,6 +205,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None, t
             sc.pp.log1p(adata)
             sc.pp.scale(adata, zero_center=True, max_value=10)
             sc.tl.pca(adata, n_comps=20)
+            
             X = adata.obsm['X_pca']
 
             # optional Harmony if multiple slices
