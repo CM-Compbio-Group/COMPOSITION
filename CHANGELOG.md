@@ -92,6 +92,7 @@ All notable changes to this project will be documented in this file.
 
 #### Fixed - 2026-03-11
 - Fixed step1_preprocess
+- Deleted max_value
 
 #### Added - 2026-03-13
 - Added extra_epochs
@@ -112,3 +113,6 @@ All notable changes to this project will be documented in this file.
 - Added viz_celltype_spatial
 - Added viz_niches
 - Added save_models
+
+#### Fixed - 2026-03-25
+- Recovered max_value
