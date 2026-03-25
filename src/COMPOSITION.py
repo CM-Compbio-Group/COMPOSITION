@@ -185,6 +185,8 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None, t
         if not standardization:
             if 'counts' in adata.layers:
                 adata.X = adata.layers['counts'].copy()
+
+            '''
             sc.pp.normalize_total(adata, target_sum=target_sum)
             sc.pp.log1p(adata)
         
@@ -197,6 +199,12 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None, t
 
             # PCA
             sc.tl.pca(adata, n_comps=n_comps)
+            '''
+
+            sc.pp.normalize_total(adata, target_sum=1e4)
+            sc.pp.log1p(adata)
+            sc.pp.scale(adata, zero_center=True, max_value=10)
+            sc.tl.pca(adata, n_comps=20)
             X = adata.obsm['X_pca']
 
             # optional Harmony if multiple slices
