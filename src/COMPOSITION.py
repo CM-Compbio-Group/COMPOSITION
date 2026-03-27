@@ -1574,7 +1574,7 @@ def viz_crosstab(cell_types_vae, cell_types_obs, n_celltypes=None, thresh=30, sa
     # 2) prepare Series
     # ----------------------------
     true_series = pd.Series(cell_types_obs, name="True")
-    pred_series = pd.Series(cell_types_obs2.astype(int), name="Predicted")
+    pred_series = pd.Series(cell_types_vae.astype(int), name="Predicted")
     
     # ----------------------------
     # 3) generate corretab (row=Predicted, column=True)
