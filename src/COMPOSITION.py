@@ -2002,6 +2002,104 @@ def viz_hierarchical_domain(z, x, y, K_final=15, colorspace="hsv", viz_dendrogra
                         cluster_to_color, link_mat,viz_dendrogram, viz_spatial, save_fig)
 
 
+def viz_celltype_spatial(cell_types_vae, cell_types_niche, x, y, save=False):
+    pred_labels = cell_types_vae
+    
+    # arrange 0–19 in a fixed order on a 4×5 subplot grid, leaving blanks where missing
+    labels_str = pred_labels.astype(str)
+    order = [str(i) for i in range(20)]
+    
+    # palette
+    palette_list = sns.color_palette("tab20", 20)
+    palette = {str(i): palette_list[i] for i in range(20)}
+
+    fig, axes = plt.subplots(4, 5, figsize=(18, 14), dpi=300)
+    axes = axes.ravel()
+    
+    for i, ax in enumerate(axes):
+        lab = str(i)
+    
+        # use a light gray background for the entire figure
+        sns.scatterplot(
+            x=x,
+            y=y,
+            color="lightgray",
+            s=10,
+            linewidth=0,
+            ax=ax,
+            legend=False
+        )
+    
+        # overlay only the corresponding label in color
+        m = (labels_str == lab)
+        if np.any(m):
+            sns.scatterplot(
+                x=x[m],
+                y=y[m],
+                color=palette[lab],
+                s=10,
+                linewidth=0,
+                ax=ax,
+                legend=False
+            )
+    
+        ax.set_title(lab, fontsize=20)
+        ax.axis("off")
+    
+    plt.tight_layout()
+    if save:
+        plt.savefig("cell_types_vae_spatial.pdf", dpi=300,
+                    bbox_inches='tight', pad_inches=0.01)
+        plt.savefig("cell_types_vae_spatial.png", dpi=300,
+                    bbox_inches='tight', pad_inches=0.01)
+    plt.show()
+    plt.close()
+    
+    pred_labels = cell_types_niche
+    fig, axes = plt.subplots(4, 5, figsize=(18, 14), dpi=300)
+    axes = axes.ravel()
+    
+    for i, ax in enumerate(axes):
+        lab = str(i)
+    
+        # use a light gray background for the entire figure
+        sns.scatterplot(
+            x=x,
+            y=y,
+            color="lightgray",
+            s=10,
+            linewidth=0,
+            ax=ax,
+            legend=False
+        )
+    
+        # overlay only the corresponding label in color
+        m = (labels_str == lab)
+        if np.any(m):
+            sns.scatterplot(
+                x=x[m],
+                y=y[m],
+                color=palette[lab],
+                s=10,
+                linewidth=0,
+                ax=ax,
+                legend=False
+            )
+    
+        ax.set_title(lab, fontsize=20)
+        ax.axis("off")
+    
+    plt.tight_layout()
+
+    if save:
+        plt.savefig("cell_types_niche_spatial.pdf", dpi=300,
+                    bbox_inches='tight', pad_inches=0.01)
+        plt.savefig("cell_types_niche_spatial.png", dpi=300,
+                    bbox_inches='tight', pad_inches=0.01)
+    plt.show()
+    plt.close()
+
+
 def viz_annot_celltype_niche(model_ff, cell_types_vae, cell_types_obs, save=False):
     plt.rc('font', size=15)
     
@@ -2181,104 +2279,6 @@ def viz_single_niche(p, x, y, idx, threshold, save=False):
         plt.savefig(f"niche_{idx}.pdf", dpi=300,
                     bbox_inches='tight', pad_inches=0.01)
         plt.savefig(f"niche_{idx}.png", dpi=300,
-                    bbox_inches='tight', pad_inches=0.01)
-    plt.show()
-    plt.close()
-
-
-def viz_celltype_spatial(cell_types_vae, cell_types_niche, x, y, save=False):
-    pred_labels = cell_types_vae
-    
-    # arrange 0–19 in a fixed order on a 4×5 subplot grid, leaving blanks where missing
-    labels_str = pred_labels.astype(str)
-    order = [str(i) for i in range(20)]
-    
-    # palette
-    palette_list = sns.color_palette("tab20", 20)
-    palette = {str(i): palette_list[i] for i in range(20)}
-
-    fig, axes = plt.subplots(4, 5, figsize=(18, 14), dpi=300)
-    axes = axes.ravel()
-    
-    for i, ax in enumerate(axes):
-        lab = str(i)
-    
-        # use a light gray background for the entire figure
-        sns.scatterplot(
-            x=x,
-            y=y,
-            color="lightgray",
-            s=10,
-            linewidth=0,
-            ax=ax,
-            legend=False
-        )
-    
-        # overlay only the corresponding label in color
-        m = (labels_str == lab)
-        if np.any(m):
-            sns.scatterplot(
-                x=x[m],
-                y=y[m],
-                color=palette[lab],
-                s=10,
-                linewidth=0,
-                ax=ax,
-                legend=False
-            )
-    
-        ax.set_title(lab, fontsize=20)
-        ax.axis("off")
-    
-    plt.tight_layout()
-    if save:
-        plt.savefig("cell_types_vae_spatial.pdf", dpi=300,
-                    bbox_inches='tight', pad_inches=0.01)
-        plt.savefig("cell_types_vae_spatial.png", dpi=300,
-                    bbox_inches='tight', pad_inches=0.01)
-    plt.show()
-    plt.close()
-    
-    pred_labels = cell_types_niche
-    fig, axes = plt.subplots(4, 5, figsize=(18, 14), dpi=300)
-    axes = axes.ravel()
-    
-    for i, ax in enumerate(axes):
-        lab = str(i)
-    
-        # use a light gray background for the entire figure
-        sns.scatterplot(
-            x=x,
-            y=y,
-            color="lightgray",
-            s=10,
-            linewidth=0,
-            ax=ax,
-            legend=False
-        )
-    
-        # overlay only the corresponding label in color
-        m = (labels_str == lab)
-        if np.any(m):
-            sns.scatterplot(
-                x=x[m],
-                y=y[m],
-                color=palette[lab],
-                s=10,
-                linewidth=0,
-                ax=ax,
-                legend=False
-            )
-    
-        ax.set_title(lab, fontsize=20)
-        ax.axis("off")
-    
-    plt.tight_layout()
-
-    if save:
-        plt.savefig("cell_types_niche_spatial.pdf", dpi=300,
-                    bbox_inches='tight', pad_inches=0.01)
-        plt.savefig("cell_types_niche_spatial.png", dpi=300,
                     bbox_inches='tight', pad_inches=0.01)
     plt.show()
     plt.close()
