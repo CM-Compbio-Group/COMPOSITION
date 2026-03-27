@@ -1,4 +1,5 @@
 import os
+import math
 from datetime import datetime
 import anndata
 import anndata as ad
@@ -2108,8 +2109,6 @@ def viz_annot_celltype_niche(model_ff, cell_types_vae, cell_types_obs, save=Fals
 
 
 def viz_niches(p, save=False):
-    import math
-    
     n_niches = p.shape[1]   # e.g. 32
     nrows = math.ceil(n_niches / 8)
     ncols = math.ceil(n_niches / nrows)
@@ -2142,6 +2141,47 @@ def viz_niches(p, save=False):
         plt.savefig("niches_plot.png", dpi=300, bbox_inches="tight")
         plt.savefig("niches_plot.pdf", bbox_inches="tight")
     
+    plt.show()
+    plt.close()
+
+
+def viz_single_niche(p, x, y, idx, threshold, save=False):
+    channel = p[:, idx].detach().cpu().numpy()
+        
+    fig, ax = plt.subplots(figsize=(5, 5), dpi=300)
+        
+    low_mask = channel < threshold
+    high_mask = channel >= threshold
+    
+    ax.scatter(
+        x[low_mask],
+        y[low_mask],
+        c='lightgray',
+        s=1,
+        linewidth=0
+    )
+    
+    sc = ax.scatter(
+        x[high_mask],
+        y[high_mask],
+        c=channel_21[high_mask],
+        s=1,
+        cmap='viridis',
+        linewidth=0
+    )
+    
+    ax.set_title(f"Niche {idx}", fontsize=20)
+    ax.axis('off')
+    fig.tight_layout()
+    
+    cbar = plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
+    cbar.ax.tick_params(labelsize=14)
+    
+    if save:
+        plt.savefig(f"niche_{idx}.pdf", dpi=300,
+                    bbox_inches='tight', pad_inches=0.01)
+        plt.savefig(f"niche_{idx}.png", dpi=300,
+                    bbox_inches='tight', pad_inches=0.01)
     plt.show()
     plt.close()
 
