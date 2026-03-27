@@ -109,9 +109,10 @@ All notable changes to this project will be documented in this file.
 #### Added - 2026-03-24
 - Added viz_crosstab_hypothalamus
 - Added viz_hierarchical_domain
-- Added viz_annot_celltype_niche
 - Added viz_celltype_spatial
+- Added viz_annot_celltype_niche
 - Added viz_niches
+- Added viz_single_niche
 - Added save_models
 
 #### Fixed - 2026-03-25
