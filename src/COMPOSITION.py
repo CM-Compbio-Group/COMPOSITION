@@ -2357,7 +2357,7 @@ def viz_annot_celltype_niche(model_ff, cell_types_vae, cell_types_obs, save=Fals
     plt.close()
 
 
-def viz_niches(p, save=False):
+def viz_niches(p, x, y, save=False):
     n_niches = p.shape[1]   # e.g. 32
     nrows = math.ceil(n_niches / 8)
     ncols = math.ceil(n_niches / nrows)
@@ -2373,8 +2373,8 @@ def viz_niches(p, save=False):
         channel = p[:, idx].detach().cpu().numpy()
     
         sc = ax.scatter(
-            -spatial_coords.x,
-            spatial_coords.y,
+            x,
+            y,
             c=channel,
             s=1,
             cmap='viridis',
