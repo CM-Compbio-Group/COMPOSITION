@@ -2413,7 +2413,7 @@ def viz_single_niche(p, x, y, idx, threshold, save=False):
     sc = ax.scatter(
         x[high_mask],
         y[high_mask],
-        c=channel_21[high_mask],
+        c=channel[high_mask],
         s=1,
         cmap='viridis',
         linewidth=0
