@@ -21,7 +21,7 @@ All notable changes to this project will be documented in this file.
 - Adopted the sparsity on $p$ instead of the sparsity on $z$
 
 #### Changed - 2025-08-26
-- Discarded the sparsity on $p$ and used the Dirichlet prior with low alpha
+- Discarded the sparsity on $p$ and used the Dirichlet prior with low $\alpha$
 
 #### Fixed - 2025-09-03
 - Returned to the sparsity on $p$
