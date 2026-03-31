@@ -100,7 +100,7 @@ All notable changes to this project will be documented in this file.
 - Added extra_epochs
 
 #### Added - 2026-03-15
-- Integrated separate step1_prev_simulation, step4_evaluation_prev_simulation
+- Added step1_prev_simulation, step4_evaluation_prev_simulation
 
 #### Added - 2026-03-17
 - Added step4_evaluation
@@ -118,4 +118,4 @@ All notable changes to this project will be documented in this file.
 - Added save_models
 
 #### Fixed - 2026-03-25
-- Recovered max_value
+- Recovered max_value in the preprocessing step
