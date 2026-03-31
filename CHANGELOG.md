@@ -18,7 +18,7 @@ All notable changes to this project will be documented in this file.
 - Changed the VGAE encoder to ProdLDA to seamlessly perform latent Dirichlet allocation
 
 #### Changed - 2025-07-28
-- Adopted the sparsity on $p$ instead the sparsity on $z$
+- Adopted the sparsity on $p$ instead of the sparsity on $z$
 
 #### Changed - 2025-08-26
 - Discarded the sparsity on $p$ and used the Dirichlet prior with low alpha
