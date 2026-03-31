@@ -36,7 +36,9 @@ All notable changes to this project will be documented in this file.
 - Renamed loss_1, loss_2, and loss_3 to loss_spatial, loss_recon, and loss_clf
 
 #### Changed - 2025-10-24
-- Variance fitting before entropy loss comes in, temperature annealing after entropy loss fixed, tanh loss for higher # of non-blanks
+- Variance fitting before entropy loss comes in
+- Temperature annealing after entropy loss fixed
+- $\text{tanh}$ loss for higher # of non-blanks
 
 #### Remark - 2025-10-30
 - Identified the importance of averaging multiple $p$ matrices from a fixed model
