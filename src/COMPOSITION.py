@@ -1191,8 +1191,8 @@ step3_postprocess_prev_simulation = step3_postprocess
 # auxiliary functions 
 # ----------------------------
 
-def eval_coenrichment(model_ff, p, cell_types_vae, cell_types_obs, THRESH_PAIR=0.05, delta=0.4):
-    def get_significant_topics(p, num_topics, manual_threshold_weight=1):
+def eval_coenrichment(model_ff, p, cell_types_vae, cell_types_obs, manual_threshold_weight=1.0, THRESH_PAIR=0.05, delta=0.4):
+    def get_significant_topics(p, num_topics):
         p_numpy = p.detach().cpu().numpy()
         dynamic_threshold = manual_threshold_weight * 1.0 / num_topics 
         significant_topics = set()
