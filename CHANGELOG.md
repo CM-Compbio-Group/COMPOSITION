@@ -121,3 +121,7 @@ All notable changes to this project will be documented in this file.
 
 #### Fixed - 2026-03-25
 - Recovered max_value in the preprocessing step
+
+#### Added - 2026-04-01
+- Added viz_celltype_niche_mask
+- Added viz_annot_celltype_niche_mask
