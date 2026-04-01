@@ -2251,45 +2251,15 @@ def viz_celltype_spatial(cell_types_vae, cell_types_niche, x, y, save=False):
     plt.close()
 
 
-def viz_celltype_nich(model_ff, cell_types_vae, cell_types_obs, save=False):
+def viz_celltype_niche(model_ff, cell_types_vae, save=False):
     plt.rc('font', size=15)
     
     # 1) data
     data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
     
     # 2) y axis label mapping
-    def make_pred_label_map_(cell_types_vae, cell_types_obs, delta=0.2, default_label="Mixed", sep="/"):
-        cell_types_vae = np.asarray(cell_types_vae)
-        cell_types_obs = np.asarray(cell_types_obs)
-    
-        if len(cell_types_vae) != len(cell_types_obs):
-            raise ValueError("The length of cell_types_vae and cell_types_obs must be the same.")
-    
-        pred_label_map = {}
-    
-        for vae_ct in np.unique(cell_types_vae):
-            obs_in_cluster = cell_types_obs[cell_types_vae == vae_ct]
-    
-            if len(obs_in_cluster) == 0:
-                pred_label_map[int(vae_ct)] = default_label
-                continue
-    
-            counts = Counter(obs_in_cluster)
-            total = len(obs_in_cluster)
-    
-            labels_above_delta = []
-            for label, count in counts.most_common():
-                ratio = count / total
-                if ratio >= delta:
-                    labels_above_delta.append(label)
-    
-            if len(labels_above_delta) > 0:
-                pred_label_map[int(vae_ct)] = sep.join(labels_above_delta)
-            else:
-                pred_label_map[int(vae_ct)] = default_label
-    
-        return pred_label_map
-    pred_label_map = make_pred_label_map_(cell_types_vae, cell_types_obs)
+    n_celltypes = len(np.unique(cell_types_vae))
+    pred_label_map = pred_label_map = {i: f"{i}" for i in range(n_celltypes)}
     
     # 3) significant/nonsignificant topic index 
     significant_topics = set(range(0, 32)) # modify it if needed e.g., {3,4,6,14}
