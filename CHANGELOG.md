@@ -110,6 +110,7 @@ All notable changes to this project will be documented in this file.
 
 #### Added - 2026-03-24
 - Added viz_crosstab_hypothalamus
+- Added viz_celltype_topic_heatmap
 - Added viz_hierarchical_domain
 - Added viz_celltype_spatial
 - Added viz_annot_celltype_niche
