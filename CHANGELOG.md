@@ -124,4 +124,4 @@ All notable changes to this project will be documented in this file.
 
 #### Added - 2026-04-01
 - Added viz_celltype_niche_mask, viz_annot_celltype_niche_mask 
-- Added mask argument to eval_coenrichment, viz_niches
+- Added mask argument to viz_niches
