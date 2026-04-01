@@ -1191,7 +1191,7 @@ step3_postprocess_prev_simulation = step3_postprocess
 # auxiliary functions 
 # ----------------------------
 
-def eval_coenrichment(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32, THRESH_PAIR=0.05, delta=0.4):
+def eval_coenrichment(model_ff, p, cell_types_vae, cell_types_obs, THRESH_PAIR=0.05, delta=0.4):
     def get_significant_topics(p, num_topics, manual_threshold_weight=1):
         p_numpy = p.detach().cpu().numpy()
         dynamic_threshold = manual_threshold_weight * 1.0 / num_topics 
@@ -1260,12 +1260,13 @@ def eval_coenrichment(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32
         print(pair_df)
         return pair_df
     
+    num_topics=p.shape[1]
     data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
     pred_label_map = make_pred_label_map(cell_types_vae, cell_types_obs)
     return cell_type_pairs(p, num_topics, pred_label_map), pred_label_map
 
 
-def eval_coenrichment_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, num_topics=32, viz_threshold=0.01, manual_threshold_weight=1.0):
+def eval_coenrichment_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, viz_threshold=0.01, manual_threshold_weight=1.0):
     '''
     Notes:
         Don't run it multiple times with the same model because model_ff changed.
@@ -1388,6 +1389,7 @@ def eval_coenrichment_prev_simulation(model_ff, p, cell_types_vae, cell_types_ob
     # ============================================================
     # 1) Modification to model_ff
     # ============================================================
+    num_topics=p.shape[1]
     one_to_one_mapping = reorder_labels(cell_types_vae, cell_types_obs, ref_categories=[i for i in range(36)])
     
     # Copy the existing weight
@@ -1550,7 +1552,7 @@ def eval_coenrichment_prev_simulation(model_ff, p, cell_types_vae, cell_types_ob
     plt.close()
 
 
-def viz_crosstab(cell_types_vae, cell_types_obs, n_celltypes=None, thresh=30, save=False):
+def viz_crosstab(cell_types_vae, cell_types_obs, thresh=30, save=False):
     import numpy as np
     import re
     from scipy.spatial.distance import pdist, squareform
@@ -1562,13 +1564,12 @@ def viz_crosstab(cell_types_vae, cell_types_obs, n_celltypes=None, thresh=30, sa
     THRESH = thresh                # remove rows/columns whose sum is below this value
     DIST_METRIC = "correlation"     # 'euclidean', 'cosine', 'correlation', etc.
     LINKAGE_METHOD = "average" # 'single','complete','average','ward', etc. (if using cosine, avoid ward)
-    if n_celltypes is None:
-        n_celltypes = len(np.unique(cell_types_vae))
+    n_celltypes = len(np.unique(cell_types_vae))
         
     # ----------------------------
     # 1) manual annotation map (`Predicted` integer → string) 
     # ----------------------------
-    pred_label_map = {i: f"{i}" for i in range(20)} # modify this if needed
+    pred_label_map = {i: f"{i}" for i in range(n_celltypes)} # modify this if needed
     
     # ----------------------------
     # 2) prepare Series
@@ -1583,7 +1584,7 @@ def viz_crosstab(cell_types_vae, cell_types_obs, n_celltypes=None, thresh=30, sa
     cont.index = cont.index.map(pred_label_map)
     
     # primary sorting by a visually pleasing row order (0–19)
-    pred_order = [pred_label_map[i] for i in range(20)]
+    pred_order = [pred_label_map[i] for i in range(n_celltypes)]
     cont = cont.reindex(pred_order)
     
     # sort the columns once as well (natural-number order) 
@@ -1701,7 +1702,7 @@ def viz_crosstab(cell_types_vae, cell_types_obs, n_celltypes=None, thresh=30, sa
     plt.close()
     
 
-def viz_crosstab_hypothalamus(cell_types_vae, cell_types_obs, n_celltypes=None, thresh=30, save=False):
+def viz_crosstab_hypothalamus(cell_types_vae, cell_types_obs, thresh=30, save=False):
     import numpy as np
     import re
     from scipy.spatial.distance import pdist, squareform
@@ -1713,8 +1714,7 @@ def viz_crosstab_hypothalamus(cell_types_vae, cell_types_obs, n_celltypes=None, 
     THRESH = thresh                # remove rows/columns whose sum is below this value
     DIST_METRIC = "correlation"     # 'euclidean', 'cosine', 'correlation', etc.
     LINKAGE_METHOD = "average" # 'single','complete','average','ward', etc. (if using cosine, avoid ward)
-    if n_celltypes is None:
-        n_celltypes = len(np.unique(cell_types_vae))
+    n_celltypes = len(np.unique(cell_types_vae))
     
     # ----------------------------
     # 1) manual annotation map (`Predicted` integer → string) 
@@ -1958,6 +1958,100 @@ def viz_crosstab_hypothalamus(cell_types_vae, cell_types_obs, n_celltypes=None, 
     
     plt.show()
     plt.close()
+
+
+def viz_celltype_niche_mask(p, model_ff, cell_types_vae, manual_threshold_weight=1.0, save=False):
+    '''
+    mask slightly the xlabels of nonsignificant topics
+    '''
+    
+    plt.rc('font', size=15)
+    
+    # 1) data
+    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    num_topics = p.shape[1]
+    
+    # 2) y axis label mapping
+    n_celltypes = len(np.unique(cell_types_vae))
+    pred_label_map = pred_label_map = {i: f"{i}" for i in range(n_celltypes)}
+    
+    # 3) significant/nonsignificant topic index 
+    significant_topics = set(range(0, num_topics)) # modify it if needed e.g., {3,4,6,14}
+    all_topics = set(range(data_matrix.shape[1]))
+    nonsig_topics = sorted(list(all_topics - significant_topics))
+    
+    # 4) plot
+    fig, ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
+    hm = sns.heatmap(
+        data_matrix,
+        ax=ax,
+        cmap='inferno',
+        cbar=True,
+        vmax=0.1
+    )
+    
+    # 5) axis label
+    ax.set_xlabel("Topic", fontsize=16)
+    ax.set_ylabel("Cell Type", fontsize=16)
+    ax.tick_params(axis='x', labelrotation=90)
+    ax.tick_params(axis='y', labelrotation=0)
+    
+    # replace the y-axis labels (apply a 0.5 offset since the cell centers are at 0.5, 1.5, ...)
+    ax.set_yticks([i + 0.5 for i in range(len(pred_label_map))])
+    ax.set_yticklabels([pred_label_map[i] for i in range(len(pred_label_map))],
+                       rotation=0)#, fontsize=10)
+    ax.grid(False)
+    
+    # 6) shade non-significant topics with a light gray background, and set the tick colors to gray
+    # lower the heatmap to the back (i.e., use a smaller `zorder`), and bring the gray spans to the front (i.e., use a larger `zorder`)
+    hm.collections[0].set_zorder(1)
+    
+    n_cols = data_matrix.shape[1]
+    assert all(0 <= j < n_cols for j in nonsig_topics)
+    
+    for j in nonsig_topics:
+        ax.axvspan(
+            j, j+1,
+            ymin=0.0, ymax=1.0,             # whole column
+            color='#D0D0D0', alpha=0.50,
+            zorder=3,                       # 🔼 above than heatmap
+            clip_on=False                   # prevent the plot edges from being clipped
+        )
+    
+    # set the x-axis tick label color to gray
+    def get_significant_topics(p, num_topics):
+        p_numpy = p.detach().cpu().numpy()
+        dynamic_threshold = manual_threshold_weight * 1.0 / num_topics 
+        significant_topics = set()
+        for spot_weights in p_numpy:
+            indices = np.where(spot_weights > dynamic_threshold)[0]
+            significant_topics.update(indices)
+        return significant_topics
+    sig_topics = get_significant_topics(p, p.shape[1])
+    
+    for j, lbl in enumerate(ax.get_xticklabels()):
+        if j not in sig_topics:
+            lbl.set_color('0.7')   # grey
+        else:
+            lbl.set_color('black')
+    
+    # (optional) uncomment this if you want to add a legend patch.
+    # from matplotlib.lines import Line2D
+    # legend_elements = [
+    #     Line2D([0], [0], color='lightgray', lw=10, alpha=0.4, label='Non-significant topics'),
+    # ]
+    # ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1,1))
+    
+    # 7) save
+    hm.collections[0].set_rasterized(True)  # rasterize only the heatmap in the PDF (for sharper rendering and smaller file size)
+    if save:
+        fig.savefig("celltype_topic_heatmap_marked.pdf", dpi=300, bbox_inches='tight', pad_inches=0.02)
+        fig.savefig("celltype_topic_heatmap_marked.png", dpi=300, bbox_inches='tight', pad_inches=0.02)
+    plt.show()
+    plt.close()
+
+
+
 
 
 def viz_hierarchical_domain(z, x, y, K_final=15, colorspace="hsv", viz_dendrogram=True, viz_spatial=True, save_fig=False, figurename="figure.png"):
