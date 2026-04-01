@@ -2522,6 +2522,9 @@ def viz_celltype_niche_mask(p, model_ff, cell_types_vae, manual_threshold_weight
 
 
 def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, manual_threshold_weight=1.0, save=False):
+    '''
+    mask slightly the xlabels of nonsignificant topics
+    '''
     plt.rc('font', size=15)
     
     # 1) data
