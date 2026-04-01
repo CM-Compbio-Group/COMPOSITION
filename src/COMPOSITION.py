@@ -1238,7 +1238,7 @@ def eval_coenrichment(model_ff, p, cell_types_vae, cell_types_obs, manual_thresh
         pair_results = []
         n_celltypes, n_topics = data_matrix.shape
         
-        for pp in range(n_topics):
+        for pp in target_topics:
             valid_cells = [a for a in range(n_celltypes) if data_matrix[a, pp] > THRESH_PAIR]
             for a, b in itertools.combinations(valid_cells, 2):
                 pair_results.append({
