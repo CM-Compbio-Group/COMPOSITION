@@ -2563,7 +2563,7 @@ def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, m
                 pred_label_map[int(vae_ct)] = default_label
     
         return pred_label_map
-    pred_label_map = make_pred_label_map_(cell_types_obs2, cell_types_obs)
+    pred_label_map = make_pred_label_map_(cell_types_vae, cell_types_obs)
     
     # 3) significant/nonsignificant topic index 
     significant_topics = set(range(0, 32)) # modify it if needed e.g., {3,4,6,14}
@@ -2589,7 +2589,7 @@ def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, m
     # replace the y-axis labels (apply a 0.5 offset since the cell centers are at 0.5, 1.5, ...)
     ax.set_yticks([i + 0.5 for i in range(len(pred_label_map))])
     ax.set_yticklabels([pred_label_map[i] for i in range(len(pred_label_map))],
-                       rotation=0, fontsize=10)
+                       rotation=0)#, fontsize=10)
     ax.grid(False)
     
     # 6) shade non-significant topics with a light gray background, and set the tick colors to gray
