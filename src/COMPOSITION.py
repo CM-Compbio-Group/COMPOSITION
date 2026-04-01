@@ -2641,13 +2641,26 @@ def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, m
     plt.close()
     
 
-def viz_niches(p, x, y, save=False):
+def viz_niches(p, x, y, manual_threshold_weight=1.0, mask=True, save=False):
+    '''
+    mask: mask slightly the xlabels of nonsignificant topics
+    '''
     n_niches = p.shape[1]   # e.g. 32
     nrows = math.ceil(n_niches / 8)
     ncols = math.ceil(n_niches / nrows)
     
     fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 3, nrows * 3), dpi=300)
     axes = axes.ravel()
+
+    def get_significant_topics(p, num_topics):
+        p_numpy = p.detach().cpu().numpy()
+        dynamic_threshold = manual_threshold_weight * 1.0 / num_topics 
+        significant_topics = set()
+        for spot_weights in p_numpy:
+            indices = np.where(spot_weights > dynamic_threshold)[0]
+            significant_topics.update(indices)
+        return significant_topics
+    target_topics = get_significant_topics(p, n_niches)
     
     for idx, ax in enumerate(axes):
         if idx >= n_niches:
@@ -2665,7 +2678,11 @@ def viz_niches(p, x, y, save=False):
             linewidth=0
         )
     
-        ax.set_title(f"Niche {idx}", fontsize=30)
+        if mask and idx not in target_topics:
+            title_color = '0.7'
+        else:
+            title_color = 'black'
+        ax.set_title(f"Niche {idx}", fontsize=30, color=title_color)
         ax.axis('off')
     
     plt.tight_layout()
