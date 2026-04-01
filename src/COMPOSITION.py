@@ -2251,6 +2251,112 @@ def viz_celltype_spatial(cell_types_vae, cell_types_niche, x, y, save=False):
     plt.close()
 
 
+def viz_celltype_nich(model_ff, cell_types_vae, cell_types_obs, save=False):
+    plt.rc('font', size=15)
+    
+    # 1) data
+    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    
+    # 2) y axis label mapping
+    def make_pred_label_map_(cell_types_vae, cell_types_obs, delta=0.2, default_label="Mixed", sep="/"):
+        cell_types_vae = np.asarray(cell_types_vae)
+        cell_types_obs = np.asarray(cell_types_obs)
+    
+        if len(cell_types_vae) != len(cell_types_obs):
+            raise ValueError("The length of cell_types_vae and cell_types_obs must be the same.")
+    
+        pred_label_map = {}
+    
+        for vae_ct in np.unique(cell_types_vae):
+            obs_in_cluster = cell_types_obs[cell_types_vae == vae_ct]
+    
+            if len(obs_in_cluster) == 0:
+                pred_label_map[int(vae_ct)] = default_label
+                continue
+    
+            counts = Counter(obs_in_cluster)
+            total = len(obs_in_cluster)
+    
+            labels_above_delta = []
+            for label, count in counts.most_common():
+                ratio = count / total
+                if ratio >= delta:
+                    labels_above_delta.append(label)
+    
+            if len(labels_above_delta) > 0:
+                pred_label_map[int(vae_ct)] = sep.join(labels_above_delta)
+            else:
+                pred_label_map[int(vae_ct)] = default_label
+    
+        return pred_label_map
+    pred_label_map = make_pred_label_map_(cell_types_vae, cell_types_obs)
+    
+    # 3) significant/nonsignificant topic index 
+    significant_topics = set(range(0, 32)) # modify it if needed e.g., {3,4,6,14}
+    all_topics = set(range(data_matrix.shape[1]))
+    nonsig_topics = sorted(list(all_topics - significant_topics))
+    
+    # 4) plot
+    fig, ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
+    hm = sns.heatmap(
+        data_matrix,
+        ax=ax,
+        cmap='inferno',
+        cbar=True,
+        vmax=0.1
+    )
+    
+    # 5) axis label
+    ax.set_xlabel("Topic", fontsize=16)
+    ax.set_ylabel("Cell Type", fontsize=16)
+    ax.tick_params(axis='x', labelrotation=90)
+    ax.tick_params(axis='y', labelrotation=0)
+    
+    # replace the y-axis labels (apply a 0.5 offset since the cell centers are at 0.5, 1.5, ...)
+    ax.set_yticks([i + 0.5 for i in range(len(pred_label_map))])
+    ax.set_yticklabels([pred_label_map[i] for i in range(len(pred_label_map))],
+                       rotation=0, fontsize=10)
+    ax.grid(False)
+    
+    # 6) shade non-significant topics with a light gray background, and set the tick colors to gray
+    # lower the heatmap to the back (i.e., use a smaller `zorder`), and bring the gray spans to the front (i.e., use a larger `zorder`)
+    hm.collections[0].set_zorder(1)
+    
+    n_cols = data_matrix.shape[1]
+    assert all(0 <= j < n_cols for j in nonsig_topics)
+    
+    for j in nonsig_topics:
+        ax.axvspan(
+            j, j+1,
+            ymin=0.0, ymax=1.0,             # whole column
+            color='#D0D0D0', alpha=0.50,
+            zorder=3,                       # 🔼 above than heatmap
+            clip_on=False                   # prevent the plot edges from being clipped
+        )
+    
+    # set the x-axis tick label color to gray
+    for j, lbl in enumerate(ax.get_xticklabels()):
+        if j in nonsig_topics:
+            lbl.set_color('0.7')   # grey
+        else:
+            lbl.set_color('black')
+    
+    # (optional) uncomment this if you want to add a legend patch.
+    # from matplotlib.lines import Line2D
+    # legend_elements = [
+    #     Line2D([0], [0], color='lightgray', lw=10, alpha=0.4, label='Non-significant topics'),
+    # ]
+    # ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1,1))
+    
+    # 7) save
+    hm.collections[0].set_rasterized(True)  # rasterize only the heatmap in the PDF (for sharper rendering and smaller file size)
+    if save:
+        fig.savefig("celltype_topic_heatmap_marked.pdf", dpi=300, bbox_inches='tight', pad_inches=0.02)
+        fig.savefig("celltype_topic_heatmap_marked.png", dpi=300, bbox_inches='tight', pad_inches=0.02)
+    plt.show()
+    plt.close()
+
+
 def viz_annot_celltype_niche(model_ff, cell_types_vae, cell_types_obs, save=False):
     plt.rc('font', size=15)
     
