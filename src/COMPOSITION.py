@@ -1191,7 +1191,7 @@ step3_postprocess_prev_simulation = step3_postprocess
 # auxiliary functions 
 # ----------------------------
 
-def eval_colocalization(model_ff, p, cell_types_vae, cell_types_obs, manual_threshold_weight=1.0, THRESH_PAIR=0.05, delta=0.4):
+def eval_colocalization(model_ff, p, cell_types_vae, cell_types_obs, manual_threshold_weight=0.0, THRESH_PAIR=0.05, delta=0.4):
     def get_significant_topics(p, num_topics):
         p_numpy = p.detach().cpu().numpy()
         dynamic_threshold = manual_threshold_weight * 1.0 / num_topics 
@@ -1266,7 +1266,7 @@ def eval_colocalization(model_ff, p, cell_types_vae, cell_types_obs, manual_thre
     return cell_type_pairs(p, num_topics, pred_label_map), pred_label_map
 
 
-def eval_colocalization_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, viz_threshold=0.01, manual_threshold_weight=1.0):
+def eval_colocalization_prev_simulation(model_ff, p, cell_types_vae, cell_types_obs, viz_threshold=0.01, manual_threshold_weight=0.0):
     '''
     Notes:
         Don't run it multiple times with the same model because model_ff changed.
@@ -2434,7 +2434,7 @@ def viz_annot_celltype_niche(model_ff, cell_types_vae, cell_types_obs, save=Fals
     plt.close()
 
 
-def viz_celltype_niche_mask(p, model_ff, cell_types_vae, manual_threshold_weight=1.0, save=False):
+def viz_celltype_niche_mask(p, model_ff, cell_types_vae, manual_threshold_weight=0.0, save=False):
     plt.rc('font', size=15)
     
     # 1) data
@@ -2521,7 +2521,7 @@ def viz_celltype_niche_mask(p, model_ff, cell_types_vae, manual_threshold_weight
     plt.close()
 
 
-def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, manual_threshold_weight=1.0, save=False):
+def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, manual_threshold_weight=0.0, save=False):
     '''
     mask slightly the xlabels of nonsignificant topics
     '''
@@ -2641,7 +2641,7 @@ def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, m
     plt.close()
     
 
-def viz_niches(p, x, y, manual_threshold_weight=1.0, mask=True, save=False):
+def viz_niches(p, x, y, manual_threshold_weight=0.0, mask=True, save=False):
     '''
     mask: mask slightly the xlabels of nonsignificant topics
     '''
