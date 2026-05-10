@@ -80,6 +80,7 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None, t
             ("Coordinates.X", "Coordinates.Y"),
             ("xc", "yc"),
             ("bin_row", "bin_col"),
+            ("bin_x", "bin_y"),
             ("grid_row", "grid_col"),
             ("vertex_x", "vertex_y"),
             ("x_int", "y_int"),
