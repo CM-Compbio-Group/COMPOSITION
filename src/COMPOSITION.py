@@ -2330,6 +2330,11 @@ def viz_celltype_niche(model_ff, cell_types_vae, save=False):
 
 
 def viz_annot_celltype_niche(model_ff, cell_types_vae, cell_types_obs, save=False):
+    '''
+    cell_types_vae: predicted cell type
+    cell_types_obs: ground truth cell type
+    '''
+    
     plt.rc('font', size=15)
     
     # 1) data
