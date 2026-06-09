@@ -181,6 +181,8 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None, t
         X = X_pca
     elif 'X_pca' in adata.obsm:
         X = adata.obsm['X_pca']
+    elif 'X_pca_harmony' in adata.obsm:
+        X = adata.obsm['X_pca_harmony']
     else:
         if standardization is None:
             standardization = adata.shape[1] < 1000
