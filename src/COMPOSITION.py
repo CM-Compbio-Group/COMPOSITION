@@ -2649,6 +2649,175 @@ def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, m
     plt.close()
     
 
+ def viz_annot_celltype_niche_mask_cluster_deduplicate(p, model_ff, cell_types_vae, cell_types_obs, manual_threshold_weight=0.0, similarity_threshold=0.95, save=False):
+    '''
+    mask slightly the xlabels of nonsignificant topics
+    '''
+    plt.rc('font', size=15)
+    
+    # 1) data
+    num_topics = p.shape[1]
+    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    
+    # column similarity filtering: keep one representative among too-similar niches
+    from scipy.spatial.distance import pdist
+    from scipy.cluster.hierarchy import linkage, leaves_list
+    from sklearn.metrics.pairwise import cosine_similarity
+    
+    sim = cosine_similarity(data_matrix.T)
+    
+    keep_cols = []
+    removed_cols = set()
+    
+    for i in range(sim.shape[0]):
+        if i in removed_cols:
+            continue
+        keep_cols.append(i)
+    
+        similar_cols = np.where(sim[i] >= similarity_threshold)[0]
+        for j in similar_cols:
+            if j != i:
+                removed_cols.add(j)
+    
+    data_matrix = data_matrix[:, keep_cols]
+    kept_niches = keep_cols
+    
+    # column clustering
+    col_dist = pdist(data_matrix.T, metric="correlation")
+    col_linkage = linkage(col_dist, method="average")
+    col_order = leaves_list(col_linkage)
+    
+    data_matrix = data_matrix[:, col_order]
+    kept_niches = [kept_niches[i] for i in col_order]
+    
+    num_niches = data_matrix.shape[1]
+    
+    # 2) y axis label mapping
+    def make_pred_label_map_(cell_types_vae, cell_types_obs, delta=0.2, default_label="Mixed", sep="/"):
+        cell_types_vae = np.asarray(cell_types_vae)
+        cell_types_obs = np.asarray(cell_types_obs)
+    
+        if len(cell_types_vae) != len(cell_types_obs):
+            raise ValueError("The length of cell_types_vae and cell_types_obs must be the same.")
+    
+        pred_label_map = {}
+    
+        for vae_ct in np.unique(cell_types_vae):
+            obs_in_cluster = cell_types_obs[cell_types_vae == vae_ct]
+    
+            if len(obs_in_cluster) == 0:
+                pred_label_map[int(vae_ct)] = default_label
+                continue
+    
+            counts = Counter(obs_in_cluster)
+            total = len(obs_in_cluster)
+    
+            labels_above_delta = []
+            for label, count in counts.most_common():
+                ratio = count / total
+                if ratio >= delta:
+                    labels_above_delta.append(label)
+    
+            if len(labels_above_delta) > 0:
+                pred_label_map[int(vae_ct)] = sep.join(labels_above_delta)
+            else:
+                pred_label_map[int(vae_ct)] = default_label
+    
+        return pred_label_map
+    pred_label_map = make_pred_label_map_(cell_types_vae, cell_types_obs)
+    
+    # 3) significant/nonsignificant topic index 
+    significant_topics = set(range(0, 32))
+
+    significant_niches = set()
+    for new_idx, old_idx in enumerate(kept_niches):
+        if old_idx in significant_topics:
+            significant_niches.add(new_idx)
+    
+    all_niches = set(range(data_matrix.shape[1]))
+    nonsig_topics = sorted(list(all_niches - significant_niches))
+    
+    # 4) plot
+    fig, ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
+    hm = sns.heatmap(
+        data_matrix,
+        ax=ax,
+        cmap='inferno',
+        cbar=True,
+        vmax=0.1
+    )
+    
+    # 5) axis label
+    ax.set_xlabel("Niche", fontsize=16)
+    ax.set_ylabel("Cell Type", fontsize=16)
+    ax.tick_params(axis='x', labelrotation=90)
+    ax.tick_params(axis='y', labelrotation=0)
+    ax.set_xticks([i + 0.5 for i in range(num_niches)])
+    ax.set_xticklabels([f"Niche {i}" for i in kept_niches], rotation=90)
+    
+    # replace the y-axis labels (apply a 0.5 offset since the cell centers are at 0.5, 1.5, ...)
+    ax.set_yticks([i + 0.5 for i in range(len(pred_label_map))])
+    ax.set_yticklabels([pred_label_map[i] for i in range(len(pred_label_map))],
+                       rotation=0)#, fontsize=10)
+    ax.grid(False)
+    
+    # 6) shade non-significant topics with a light gray background, and set the tick colors to gray
+    # lower the heatmap to the back (i.e., use a smaller `zorder`), and bring the gray spans to the front (i.e., use a larger `zorder`)
+    hm.collections[0].set_zorder(1)
+    
+    n_cols = data_matrix.shape[1]
+    assert all(0 <= j < n_cols for j in nonsig_topics)
+    
+    for j in nonsig_topics:
+        ax.axvspan(
+            j, j+1,
+            ymin=0.0, ymax=1.0,             # whole column
+            color='#D0D0D0', alpha=0.50,
+            zorder=3,                       # 🔼 above than heatmap
+            clip_on=False                   # prevent the plot edges from being clipped
+        )
+    
+    # set the x-axis tick label color to gray
+    def get_significant_topics(p, num_topics):
+        p_numpy = p.detach().cpu().numpy()
+        dynamic_threshold = manual_threshold_weight * 1.0 / num_topics
+    
+        significant_topics = set()
+        for spot_weights in p_numpy:
+            indices = np.where(spot_weights > dynamic_threshold)[0]
+            significant_topics.update(indices)
+    
+        return significant_topics
+    
+    sig_topics_original = get_significant_topics(p, p.shape[1])
+    
+    sig_niches = set()
+    for new_idx, old_idx in enumerate(kept_niches):
+        if old_idx in sig_topics_original:
+            sig_niches.add(new_idx)
+    
+    for j, lbl in enumerate(ax.get_xticklabels()):
+        if j not in sig_niches:
+            lbl.set_color('0.7')
+        else:
+            lbl.set_color('black')
+        
+    # (optional) uncomment this if you want to add a legend patch.
+    # from matplotlib.lines import Line2D
+    # legend_elements = [
+    #     Line2D([0], [0], color='lightgray', lw=10, alpha=0.4, label='Non-significant topics'),
+    # ]
+    # ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1,1))
+    
+    # 7) save
+    hm.collections[0].set_rasterized(True)  # rasterize only the heatmap in the PDF (for sharper rendering and smaller file size)
+    if save:
+        fig.savefig("celltype_topic_heatmap_marked.pdf", dpi=300, bbox_inches='tight', pad_inches=0.02)
+        fig.savefig("celltype_topic_heatmap_marked.png", dpi=300, bbox_inches='tight', pad_inches=0.02)
+    plt.show()
+    plt.close()
+
+
 def viz_niches(p, x, y, manual_threshold_weight=0.0, mask=True, save=False):
     '''
     mask: mask slightly the xlabels of nonsignificant topics
