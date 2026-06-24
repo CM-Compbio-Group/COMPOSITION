@@ -128,3 +128,6 @@ All notable changes to this project will be documented in this file.
 
 #### Fixed - 2026-04-01
 - Renamed eval_coenrichment to eval_colocalization
+
+#### Added - 2026-06-24
+- Added viz_annot_celltype_niche_mask_cluster_deduplicate
