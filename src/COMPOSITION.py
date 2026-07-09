@@ -255,6 +255,10 @@ def step1_preprocess(adata_orig, X_pca=None, n_comps=20, standardization=None, t
 
 
 def step2_run(adata, data, dataloader, seed=1, hid_dim=128, num_topics=32, n_celltypes=20, minibatch=False, temperature=0.1, early_stopping=False, alpha=1, wloss_spatial=1.2, wloss_KLD=0.005, wloss_recon=1, wloss_clf=1, wloss_entropy=1.2, tanh_thr=0.005, grad_clip=100, l1_ratio=0, coupling_weight=0.05, optim='adam', lr=9e-3, weight_decay=5e-3, momentum=0, epochs=3000, extra_epochs=600, spotwise_celltype_probability=None):
+    '''
+        spotwise_celltype_probability=F.softmax(logits, dim=1).detach().cpu().numpy()
+    '''
+    
     def get_clf_class_weights(coords, n_celltypes, vae_z, p=4):
         # partition the range of x and y axes
         EPS = 1e-8
