@@ -361,7 +361,10 @@ def step3_postprocess(data, model, model_ct, model_ff, temperature=0.1, n_cluste
     logits = logits.squeeze(1)
     cell_types_vae = F.softmax(logits, dim=1).argmax(dim=1).cpu().numpy().astype(str)
 
-    niche_composition = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0)
+    #niche_composition = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0)
+    W = F.softplus(model_ff.fc1.weight.detach().cpu())
+    W = W / (W.sum(dim=0, keepdim=True) + 1e-12)
+    niche_composition = W.numpy()
 
     pred_domains = KMeans(n_clusters=n_clusters, random_state=0).fit_predict(p.detach().cpu())
                                   
@@ -1268,7 +1271,10 @@ def eval_colocalization(model_ff, p, cell_types_vae, cell_types_obs, manual_thre
         return pair_df
     
     num_topics=p.shape[1]
-    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    #data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    W = F.softplus(model_ff.fc1.weight.detach().cpu())
+    W = W / (W.sum(dim=0, keepdim=True) + 1e-12)
+    data_matrix = W.numpy()
     pred_label_map = make_pred_label_map(cell_types_vae, cell_types_obs)
     return cell_type_pairs(p, num_topics, pred_label_map), pred_label_map
 
@@ -1390,7 +1396,10 @@ def eval_colocalization_prev_simulation(model_ff, p, cell_types_vae, cell_types_
         return all_predicted_pairs
 
     def predicted_cell_type_pairs(p, model_ff, num_topics, threshold=None, indices=None):
-        weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+        #weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+        W = F.softplus(model_ff.fc1.weight.detach().cpu())
+        W = W / (W.sum(dim=0, keepdim=True) + 1e-12)
+        weights = W.numpy()
         return get_predicted_pairs_top3(p, weights, num_topics, threshold=threshold)
     
     # ============================================================
@@ -1415,12 +1424,16 @@ def eval_colocalization_prev_simulation(model_ff, p, cell_types_vae, cell_types_
     # Apply reordered weight to model
     model_ff.fc1.weight.data = shuffled_weight
 
-    W = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    #W = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    W = F.softplus(model_ff.fc1.weight.detach().cpu())
+    W = W / (W.sum(dim=0, keepdim=True) + 1e-12)
+    W = W.numpy()
     sns.heatmap(W, vmin=0, vmax=viz_threshold, cmap="viridis")  
     plt.show()
     plt.close()
     
-    weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    #weights = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    weights = W
     #max_vals = weights.max(axis=0)  # shape: (16,)
     thresholds = viz_threshold #viz_threshold * max_vals
     binary_weights = (weights >= thresholds).astype(int)
@@ -2263,7 +2276,10 @@ def viz_celltype_niche(model_ff, cell_types_vae, save=False):
     plt.rc('font', size=15)
     
     # 1) data
-    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    #data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    W = F.softplus(model_ff.fc1.weight.detach().cpu())
+    W = W / (W.sum(dim=0, keepdim=True) + 1e-12)
+    data_matrix = W.numpy()
     
     # 2) y axis label mapping
     n_celltypes = len(np.unique(cell_types_vae))
@@ -2344,7 +2360,10 @@ def viz_annot_celltype_niche(model_ff, cell_types_vae, cell_types_obs, save=Fals
     plt.rc('font', size=15)
     
     # 1) data
-    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    #data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    W = F.softplus(model_ff.fc1.weight.detach().cpu())
+    W = W / (W.sum(dim=0, keepdim=True) + 1e-12)
+    data_matrix = W.numpy()
     
     # 2) y axis label mapping
     def make_pred_label_map_(cell_types_vae, cell_types_obs, delta=0.2, default_label="Mixed", sep="/"):
@@ -2450,7 +2469,10 @@ def viz_celltype_niche_mask(p, model_ff, cell_types_vae, manual_threshold_weight
     plt.rc('font', size=15)
     
     # 1) data
-    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    #data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    W = F.softplus(model_ff.fc1.weight.detach().cpu())
+    W = W / (W.sum(dim=0, keepdim=True) + 1e-12)
+    data_matrix = W.numpy()
     num_topics = p.shape[1]
     
     # 2) y axis label mapping
@@ -2541,7 +2563,10 @@ def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, m
     
     # 1) data
     num_topics = p.shape[1]
-    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    #data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    W = F.softplus(model_ff.fc1.weight.detach().cpu())
+    W = W / (W.sum(dim=0, keepdim=True) + 1e-12)
+    data_matrix = W.numpy()
     
     # 2) y axis label mapping
     def make_pred_label_map_(cell_types_vae, cell_types_obs, delta=0.2, default_label="Mixed", sep="/"):
@@ -2661,7 +2686,10 @@ def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, m
     
     # 1) data
     num_topics = p.shape[1]
-    data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    #data_matrix = F.softmax(model_ff.fc1.weight.detach().cpu(), dim=0).numpy()
+    W = F.softplus(model_ff.fc1.weight.detach().cpu())
+    W = W / (W.sum(dim=0, keepdim=True) + 1e-12)
+    data_matrix = W.numpy()
     
     # column similarity filtering: keep one representative among too-similar niches
     from scipy.spatial.distance import pdist
