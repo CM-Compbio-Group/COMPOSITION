@@ -131,3 +131,6 @@ All notable changes to this project will be documented in this file.
 
 #### Added - 2026-06-24
 - Added viz_annot_celltype_niche_mask_cluster_deduplicate
+
+#### Fixed - 2026-07-17
+- Replaced the softmax activation for niche composition with softplus
