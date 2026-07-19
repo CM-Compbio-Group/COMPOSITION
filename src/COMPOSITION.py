@@ -2678,7 +2678,7 @@ def viz_annot_celltype_niche_mask(p, model_ff, cell_types_vae, cell_types_obs, m
     plt.close()
     
 
- def viz_annot_celltype_niche_mask_cluster_deduplicate(p, model_ff, cell_types_vae, cell_types_obs, manual_threshold_weight=0.0, similarity_threshold=0.95, save=False):
+def viz_annot_celltype_niche_mask_cluster_deduplicate(p, model_ff, cell_types_vae, cell_types_obs, manual_threshold_weight=0.0, similarity_threshold=0.95, save=False):
     '''
     mask slightly the xlabels of nonsignificant topics
     '''
