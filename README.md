@@ -12,6 +12,10 @@ _**Publication**_
 
 * _Park, J., Zhang, T., Ma, C. (2025) Scalable cell type and spatial domain modeling using spatially informed topic inference of cancer niches. AACR 2026_ [[ref](https://aacrjournals.org/cancerres/article/86/7_Supplement/6837/777882)]
 
+_**Talk**_
+
+* _Tools and Technology Seminar Series (Sep 24, 2026), DCMB, UMich_ [[ref](https://www.youtube.com/watch?v=z2k0jfgJAk0)]
+
 ## Installation
 
 ```bash
